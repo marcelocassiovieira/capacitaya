@@ -11,15 +11,15 @@ Stack inicial:
 - SQLAlchemy
 - Render
 
-## Modelo mental desde Spring Boot
+## Organizacion del backend
 
-- `router.py`: Controller
-- `service.py`: Service
-- `repository.py`: Repository
-- `models.py`: Entity
-- `schemas.py`: DTO request/response
-- `database.py`: datasource/session factory
-- FastAPI + Uvicorn: aplicación web + servidor HTTP/ASGI
+- `router.py`: endpoints HTTP y dependencias de FastAPI
+- `service.py`: reglas de negocio y manejo de errores de aplicación
+- `repository.py`: acceso a datos con SQLAlchemy
+- `models.py`: modelos persistentes y definicion de tablas
+- `schemas.py`: contratos de entrada/salida con Pydantic
+- `database.py`: engine, sesiones y setup de base de datos
+- FastAPI + Uvicorn: aplicacion web y servidor HTTP/ASGI
 
 ## Estructura
 

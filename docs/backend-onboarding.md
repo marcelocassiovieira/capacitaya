@@ -51,15 +51,15 @@ curl http://localhost:8000/users
 
 ## Dónde poner cada cosa
 
-`router.py` recibe HTTP, valida payloads y delega. Es el equivalente práctico a un controller Spring.
+`router.py` recibe HTTP, valida payloads y delega en servicios. Mantiene los endpoints finos y evita mezclar reglas de negocio con transporte.
 
 `service.py` contiene reglas de negocio y decisiones de error. Por ejemplo: no permitir emails duplicados.
 
 `repository.py` encapsula SQLAlchemy. Si mañana cambia una query, idealmente no toca el router.
 
-`models.py` define tablas SQLAlchemy. Es el equivalente a entidades JPA, con menos magia.
+`models.py` define tablas y columnas SQLAlchemy.
 
-`schemas.py` define contratos Pydantic. Es el equivalente a request/response DTOs.
+`schemas.py` define contratos Pydantic para requests y responses.
 
 ## Decisiones MVP
 
