@@ -9,12 +9,16 @@ Su responsabilidad es comparar el perfil actual de un estudiante contra los requ
 ```text
 student profile + target role/company requirements
         -> Gap Engine
-        -> gap report
+        -> gap report JSON
+        -> Training Module
+        -> learning path
 ```
+
+El Gap Engine pertenece a nuestro sistema. Analiza la informacion recibida, calcula la brecha y devuelve un JSON estructurado con el informe.
 
 Este modulo no genera el plan de capacitacion. Solo responde que conocimientos, habilidades o competencias le faltan al estudiante para acercarse al puesto objetivo.
 
-El plan de capacitacion sera responsabilidad de otro modulo posterior, que consumira el informe generado por este motor.
+El plan de capacitacion sera responsabilidad de otro modulo interno posterior. Ese modulo consumira el JSON generado por el Gap Engine y lo transformara en modulos, unidades y ejercicios.
 
 ## Alcance Del MVP
 
@@ -301,6 +305,17 @@ El informe deberia indicar que Git y HTTP APIs son las brechas principales, y SQ
 ## Relacion Con El Modulo De Capacitacion
 
 El Gap Engine produce el insumo principal para el modulo de capacitacion.
+
+Ambos modulos son parte del mismo backend modular:
+
+```text
+app/modules/gap_analysis/
+        -> genera GapReport JSON
+
+app/modules/learning_paths/
+        -> consume GapReport JSON
+        -> genera plan de capacitacion
+```
 
 Flujo posterior:
 
