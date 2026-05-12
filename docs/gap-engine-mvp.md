@@ -354,6 +354,16 @@ Para maximizar time to market:
 - No se usara cola.
 - No se normalizaran habilidades todavia.
 - Se persistira input y output completo para trazabilidad.
+- No se implementara login en este primer corte tecnico.
+
+La autenticacion queda diferida para antes de presentar el MVP. Mientras tanto, los endpoints se consideran publicos solo para desarrollo local o demo controlada.
+
+Antes de presentar el MVP se debera agregar:
+
+- registro/login basico,
+- JWT,
+- proteccion de endpoints,
+- roles minimos para estudiante, tutor, empresa y admin.
 
 Esto permite demostrar rapido el valor central:
 
