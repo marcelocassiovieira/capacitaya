@@ -237,6 +237,171 @@ Esperado: `422 Unprocessable Entity` con detalle del campo faltante.
 
 ---
 
+## Ver cómo Gemini personaliza la respuesta
+
+Los siguientes ejemplos están pensados para ejecutarse en orden y observar cómo **cambia el contenido generado** según el estudiante, sus intereses, la empresa y el rol objetivo. Cada caso usa una skill MISSING para que se generen 3 unidades (pasión, play, práctica).
+
+Después de cada POST, mirar especialmente:
+
+- `generator_used` debería decir `"gemini"` (si dice `"mock"`, Gemini falló y cayó al fallback).
+- `modules[0].units[0].content` (fase Pasión) debería mencionar **los intereses del estudiante** y **la empresa objetivo**.
+- `modules[0].units[2].exercises[]` (fase Práctica) debería tener ejercicios reales con `prompt`, `expected_answer` y `difficulty`.
+
+Detalles más profundos en [ai-integration.md](ai-integration.md).
+
+### Caso A — Frontend Junior con interés en videojuegos
+
+```bash
+curl -X POST https://capacity-ar-ap.onrender.com/learning-paths \
+  -H "Content-Type: application/json" \
+  -d '{
+    "student": {
+      "name": "Carlos Mendez",
+      "email": "carlos.gamer@example.com",
+      "skills": [{"name": "HTML", "level": 3}, {"name": "CSS", "level": 2}],
+      "interests": ["videojuegos", "diseño visual", "esports"]
+    },
+    "company": {"name": "GameStudio Argentina"},
+    "target_role": {
+      "title": "Frontend Developer Junior",
+      "required_skills": [{"name": "JavaScript", "level": 3, "priority": "HIGH"}]
+    },
+    "summary": "Carlos sabe HTML/CSS pero necesita JavaScript.",
+    "readiness_score": 30,
+    "skills": [{"name": "JavaScript", "current_level": 1, "required_level": 3, "gap_level": 2, "priority": "HIGH", "status": "MISSING"}]
+  }'
+```
+
+Qué observar: el contenido de las units debería conectar JavaScript con desarrollo de juegos web o experiencias visuales para esports.
+
+### Caso B — QA Automation con interés en música y podcasts
+
+```bash
+curl -X POST https://capacity-ar-ap.onrender.com/learning-paths \
+  -H "Content-Type: application/json" \
+  -d '{
+    "student": {
+      "name": "Lucia Romero",
+      "email": "lucia.qa@example.com",
+      "skills": [{"name": "Testing manual", "level": 2}],
+      "interests": ["música", "podcasts", "comunicación"]
+    },
+    "company": {"name": "Mercado Pago"},
+    "target_role": {
+      "title": "QA Automation Junior",
+      "required_skills": [{"name": "Selenium", "level": 3, "priority": "HIGH"}]
+    },
+    "summary": "Lucía sabe testing manual pero necesita automatización.",
+    "readiness_score": 25,
+    "skills": [{"name": "Selenium", "current_level": 0, "required_level": 3, "gap_level": 3, "priority": "HIGH", "status": "MISSING"}]
+  }'
+```
+
+Qué observar: el contenido debería conectar la automatización de tests con casos concretos de Mercado Pago, y la narrativa puede ligar con la pasión por la comunicación (los tests "comunican" intención al código).
+
+### Caso C — Data Analyst con interés en fútbol y estadísticas
+
+```bash
+curl -X POST https://capacity-ar-ap.onrender.com/learning-paths \
+  -H "Content-Type: application/json" \
+  -d '{
+    "student": {
+      "name": "Joaquin Diaz",
+      "email": "joaco.data@example.com",
+      "skills": [{"name": "Excel", "level": 4}],
+      "interests": ["fútbol", "estadísticas deportivas", "Boca Juniors"]
+    },
+    "company": {"name": "Globant"},
+    "target_role": {
+      "title": "Data Analyst Junior",
+      "required_skills": [{"name": "SQL", "level": 3, "priority": "HIGH"}]
+    },
+    "summary": "Joaquín domina Excel, le falta SQL.",
+    "readiness_score": 40,
+    "skills": [{"name": "SQL", "current_level": 1, "required_level": 3, "gap_level": 2, "priority": "HIGH", "status": "MISSING"}]
+  }'
+```
+
+Qué observar: los ejemplos en el contenido deberían usar tablas de partidos, jugadores o estadísticas de fútbol; los ejercicios de SQL pueden pedir consultas sobre una hipotética tabla de goles o equipos.
+
+### Caso D — Cloud Junior con interés en sustentabilidad
+
+```bash
+curl -X POST https://capacity-ar-ap.onrender.com/learning-paths \
+  -H "Content-Type: application/json" \
+  -d '{
+    "student": {
+      "name": "Sofia Castro",
+      "email": "sofi.cloud@example.com",
+      "skills": [],
+      "interests": ["sustentabilidad", "energías renovables"]
+    },
+    "company": {"name": "AWS LatAm"},
+    "target_role": {
+      "title": "Cloud Support Associate",
+      "required_skills": [{"name": "AWS EC2", "level": 2, "priority": "HIGH"}]
+    },
+    "summary": "Sofía arranca de cero en cloud.",
+    "readiness_score": 10,
+    "skills": [{"name": "AWS EC2", "current_level": 0, "required_level": 2, "gap_level": 2, "priority": "HIGH", "status": "MISSING"}]
+  }'
+```
+
+Qué observar: la narrativa puede conectar EC2 con cómputo eficiente o impacto del data center, alineando con sustentabilidad. Buen ejemplo de cómo la IA encuentra el puente cuando el interés del estudiante no es obvio para la skill.
+
+### Caso E — Mismo perfil, segundo intento (mostrar variabilidad)
+
+Repetir cualquiera de los anteriores con el mismo body **al menos dos veces seguidas**. Como Gemini tiene `temperature: 0.7`, va a producir contenidos distintos cada vez: distinto título, distintos ejemplos, distintos ejercicios. Es la prueba más clara de que **no es contenido cacheado ni hardcodeado**, sino generado en tiempo real.
+
+```bash
+# Mismo body que el Caso A, ejecutado dos veces:
+curl -X POST https://capacity-ar-ap.onrender.com/learning-paths \
+  -H "Content-Type: application/json" \
+  -d '{
+    "student": {"name":"Carlos Mendez","email":"carlos.v2@example.com","skills":[],"interests":["videojuegos","esports"]},
+    "company": {"name":"GameStudio Argentina"},
+    "target_role": {"title":"Frontend Developer Junior","required_skills":[{"name":"JavaScript","level":3,"priority":"HIGH"}]},
+    "summary":"Necesita JavaScript",
+    "readiness_score":30,
+    "skills":[{"name":"JavaScript","current_level":1,"required_level":3,"gap_level":2,"priority":"HIGH","status":"MISSING"}]
+  }'
+```
+
+### Caso F — Comparar plan mock vs plan gemini
+
+Si en algún momento alguien quiere ver la **diferencia entre los dos generadores** sin tocar Render: cambiar localmente `PLAN_GENERATOR=mock` en `.env`, hacer un POST, ver el contenido placeholder; después `PLAN_GENERATOR=gemini`, repetir, y comparar. El esqueleto del plan es idéntico (mismos módulos, misma cantidad de unidades, mismo orden); solo cambia `title`, `content`, `exercises` y `generator_used`.
+
+### Tiempos esperados
+
+| Cantidad de skills MISSING/NEEDS_WORK | Llamadas paralelas a Gemini | Tiempo aproximado |
+|---|---|---|
+| 1 | 3 | 5-10 s |
+| 2 | 6 | 10-20 s |
+| 3 | 9 | 20-30 s |
+| 4+ | 12+ | Puede superar 30s (timeout Render free tier) |
+
+Si una respuesta tarda demasiado y Render corta la conexión, el plan **no queda persistido** (la transacción no llega a commitearse). Para casos con muchos skills, ver pendientes en [ai-integration.md](ai-integration.md) sobre evolución a respuesta asincrónica.
+
+### Verificar lo persistido
+
+Después de ejecutar varios casos, en el SQL Editor de Neon:
+
+```sql
+SELECT id, student_name, target_role_title, generator_used,
+       estimated_total_hours, created_at
+FROM learning_paths
+ORDER BY id DESC
+LIMIT 20;
+```
+
+Para inspeccionar el contenido generado de un plan específico (reemplazar `5`):
+
+```sql
+SELECT plan_json FROM learning_paths WHERE id = 5;
+```
+
+---
+
 ## Tips
 
 ### Ver status code + headers
