@@ -28,8 +28,11 @@ class MockPlanGenerator:
 
         return GeneratedPlan(
             student_email=gap_report.student.email,
+            student_name=gap_report.student.name,
             company_name=gap_report.company.name,
             target_role_title=gap_report.target_role.title,
+            gap_analysis_id=gap_report.id,
+            readiness_score_initial=gap_report.readiness_score,
             modules=modules,
             estimated_total_hours=round(total_minutes / 60, 2),
             generator_used="mock",
