@@ -10,11 +10,4 @@ services:
       - key: APP_DEBUG
         value: false
       - key: DATABASE_URL
-        fromDatabase:
-          name: capacity-ar-db
-          property: connectionString
-
-databases:
-  - name: capacity-ar-db
-    databaseName: capacity_ar
-    user: capacity_ar
+        sync: false
