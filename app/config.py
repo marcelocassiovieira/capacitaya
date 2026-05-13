@@ -8,6 +8,10 @@ class Settings(BaseSettings):
     app_debug: bool = False
     database_url: str = "postgresql+psycopg://postgres:postgres@localhost:5432/capacity_ar"
 
+    plan_generator: str = "mock"
+    gemini_api_key: str | None = None
+    gemini_model: str = "gemini-2.0-flash"
+
     model_config = SettingsConfigDict(env_file=".env", env_file_encoding="utf-8")
 
     @field_validator("database_url")
