@@ -5,6 +5,7 @@ from fastapi import FastAPI
 
 from app.config import settings
 from app.database import create_db_tables
+from app.modules.learning_paths.router import router as learning_paths_router
 from app.modules.users.router import router as users_router
 
 
@@ -23,3 +24,4 @@ def health_check() -> dict[str, str]:
 
 
 app.include_router(users_router)
+app.include_router(learning_paths_router)
