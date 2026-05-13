@@ -1,0 +1,13 @@
+from typing import Protocol
+
+from app.modules.learning_paths.schemas import GeneratedPlan, StoredLearningPath
+
+
+class LearningPathRepository(Protocol):
+    def save(self, plan: GeneratedPlan) -> StoredLearningPath: ...
+
+    def find_by_id(self, path_id: int) -> StoredLearningPath | None: ...
+
+    def find_by_student_email(self, email: str) -> list[StoredLearningPath]: ...
+
+    def list_all(self, offset: int = 0, limit: int = 100) -> list[StoredLearningPath]: ...

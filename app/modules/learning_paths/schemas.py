@@ -106,10 +106,29 @@ class GeneratedModule(BaseModel):
 
 class GeneratedPlan(BaseModel):
     student_email: EmailStr
+    student_name: str
     company_name: str
     target_role_title: str
+    gap_analysis_id: int | None = None
+    readiness_score_initial: int = Field(ge=0, le=100)
     modules: list[GeneratedModule]
     estimated_total_hours: float = Field(ge=0)
     generator_used: str
 
     model_config = ConfigDict(from_attributes=True)
+
+
+# Persistencia: plan ya guardado con id y timestamps.
+
+
+class PathStatus(str, Enum):
+    ACTIVE = "ACTIVE"
+    COMPLETED = "COMPLETED"
+    ABANDONED = "ABANDONED"
+
+
+class StoredLearningPath(GeneratedPlan):
+    id: int
+    status: PathStatus
+    created_at: datetime
+    updated_at: datetime
