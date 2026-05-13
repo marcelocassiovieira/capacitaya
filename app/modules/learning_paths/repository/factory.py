@@ -1,11 +1,14 @@
-from functools import lru_cache
+from fastapi import Depends
+from sqlalchemy.orm import Session
 
+from app.database import get_db
 from app.modules.learning_paths.repository.base import LearningPathRepository
-from app.modules.learning_paths.repository.in_memory import (
-    InMemoryLearningPathRepository,
+from app.modules.learning_paths.repository.sqlalchemy import (
+    SqlAlchemyLearningPathRepository,
 )
 
 
-@lru_cache(maxsize=1)
-def get_learning_path_repository() -> LearningPathRepository:
-    return InMemoryLearningPathRepository()
+def get_learning_path_repository(
+    db: Session = Depends(get_db),
+) -> LearningPathRepository:
+    return SqlAlchemyLearningPathRepository(db)
