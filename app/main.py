@@ -5,6 +5,10 @@ from fastapi import FastAPI
 
 from app.config import settings
 from app.database import create_db_tables
+from app.modules.attempts.router import (
+    router as attempts_router,
+    student_attempts_router,
+)
 from app.modules.learning_paths.router import (
     router as learning_paths_router,
     student_paths_router,
@@ -29,3 +33,5 @@ def health_check() -> dict[str, str]:
 app.include_router(users_router)
 app.include_router(learning_paths_router)
 app.include_router(student_paths_router)
+app.include_router(attempts_router)
+app.include_router(student_attempts_router)
