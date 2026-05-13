@@ -116,8 +116,8 @@ class GeminiPlanGenerator:
     ) -> GeneratedUnit:
         prompt = build_unit_prompt(skill, phase, gap_report)
         raw = self._client.generate_json(prompt, _UNIT_RESPONSE_SCHEMA)
-        raw.setdefault("phase", phase.value)
-        raw.setdefault("estimated_minutes", _PHASE_MINUTES[phase])
+        raw["phase"] = phase.value
+        raw["estimated_minutes"] = _PHASE_MINUTES[phase]
         raw.setdefault("exercises", [])
         try:
             unit = GeneratedUnit.model_validate(raw)

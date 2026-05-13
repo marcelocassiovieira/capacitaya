@@ -20,10 +20,17 @@ _PHASE_INSTRUCTIONS = {
     LearningPhase.PRACTICA: (
         "Esta unidad es de fase PRACTICA: aplicacion activa. "
         "Explica los conceptos clave necesarios para resolver problemas reales con esta habilidad. "
-        "Incluye exactamente 2 ejercicios formativos pensados para alcanzar dominio del 80%. "
-        "Cada ejercicio debe tener prompt claro, type (multiple_choice, text o code), "
-        "expected_answer concreto, y difficulty entre 1 y 5 alineada al required_level. "
-        "Tono: tecnico pero accesible."
+        "Incluye EXACTAMENTE 5 ejercicios formativos, todos de tipo multiple_choice "
+        "(no uses text ni code), pensados para alcanzar dominio del 80%. "
+        "Para cada ejercicio:\n"
+        "- El campo 'prompt' debe contener la pregunta seguida de las 4 opciones en formato:\n"
+        "  '<pregunta>\\nA) <opcion 1>\\nB) <opcion 2>\\nC) <opcion 3>\\nD) <opcion 4>'\n"
+        "- El campo 'type' debe ser exactamente 'multiple_choice'.\n"
+        "- El campo 'expected_answer' debe ser una sola letra: 'A', 'B', 'C' o 'D'.\n"
+        "- El campo 'difficulty' debe ser un entero entre 1 y 5, escalando desde el "
+        "ejercicio 1 (mas facil) al 5 (mas dificil), alineado al required_level.\n"
+        "Las opciones deben ser plausibles, no triviales. La opcion correcta no siempre debe "
+        "ser la B; varia la letra correcta entre ejercicios. Tono: tecnico pero accesible."
     ),
 }
 
