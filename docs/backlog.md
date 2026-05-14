@@ -165,28 +165,122 @@ Algunos entregables requieren juicio humano (presentaciones, code review de proy
 
 ---
 
-## Épica 6 — Auth básica con headers mock
+## Épica 6 — Auth (fase mock → JWT real)
 
-Activa la matriz de accesos (`access-matrix.md`) que hoy está documentada pero no aplicada.
+Activa la matriz de accesos (`access-matrix.md`) que hoy está documentada pero no aplicada. La épica se entrega en dos fases: primero headers mock para destrabar el resto del sistema, después JWT real cuando se necesite producción.
+
+### Fase 6A — Headers mock (MVP)
+
+Permite desarrollar y demostrar permisos por rol sin todavía implementar la criptografía. Cuando llegue Fase 6B, el resto del código no se entera.
 
 **User stories:**
 
-- Como sistema quiero leer `X-User-Id` y `X-User-Role` de los headers en MVP (mock auth).
-- Como sistema quiero rechazar endpoints según rol (ej. solo admin puede crear company, solo tutor puede ver alertas de sus asignados).
-- Como sistema quiero, post-MVP, reemplazar el header mock por JWT real sin cambiar la matriz.
+- Como sistema quiero leer `X-User-Id` y `X-User-Email` y `X-User-Role` de los headers HTTP para identificar al usuario actual.
+- Como sistema quiero rechazar endpoints según rol declarado en cada router.
+- Como dev quiero un único punto donde se decide quién es el usuario actual, para poder reemplazarlo después por JWT sin tocar los routers.
 
 **Cambios:**
 
-- Crear `app/modules/auth/dependencies.py` con `Depends(get_current_user)` que lee headers.
-- Decorar cada endpoint con el rol requerido.
+- Crear módulo `app/modules/auth/`:
+  - `dependencies.py` — define `get_current_user`, `require_role(roles)`, `require_self_or_admin(...)`.
+  - `schemas.py` — define `AuthenticatedUser` (id, email, role).
+- En `dependencies.get_current_user`: lee headers, busca al user en `users` (verifica que el id existe y el rol coincide), devuelve `AuthenticatedUser`. Si falta header o no existe el user → `401`. Si el rol no matchea con el del header → `401`.
+- Decorar endpoints con `Depends(require_role(...))`:
+  - `POST /tutors` → solo `admin`.
+  - `GET /tutors/{id}/dashboard` → `tutor` (solo si `id` coincide con el suyo) o `admin`.
+  - `POST /attempts` → `student` (solo sobre planes propios).
+  - `GET /alerts` → `tutor` (solo de sus asignados) o `admin`.
 
 **Criterio de aceptación:**
 
-- `POST /tutors` sin header → `401`.
-- `POST /tutors` con `X-User-Role=student` → `403`.
-- `GET /tutors/{id}/dashboard` con header de otro tutor → `403`.
+- `POST /tutors` sin headers → `401 Unauthorized`.
+- `POST /tutors` con `X-User-Role=student` → `403 Forbidden`.
+- `GET /tutors/{id}/dashboard` con `X-User-Id` distinto al `id` del path → `403`.
+- `POST /attempts` con `student_email` distinto al `X-User-Email` → `403` (ya está implementado en el service, falta blindar con el header).
+- Toda la matriz de `access-matrix.md` queda aplicable con un solo cambio de dependency.
 
-**Esfuerzo estimado:** 3-4 h headers mock, +6-8 h para JWT real.
+**Esfuerzo estimado:** 3-4 h.
+
+### Fase 6B — JWT real (post-MVP, antes de presentar)
+
+Reemplaza los headers mock por tokens firmados. El resto del código no cambia: solo el contenido de `get_current_user`.
+
+**User stories:**
+
+- Como alumno/tutor/admin quiero registrarme con email + password y recibir un access token.
+- Como usuario autenticado quiero refrescar mi token sin volver a loguearme.
+- Como sistema quiero almacenar las passwords hasheadas, nunca en plaintext.
+- Como sistema quiero invalidar tokens (logout) ante un evento de seguridad.
+
+**Endpoints nuevos:**
+
+- `POST /auth/register` — recibe `email`, `password`, `first_name`, `last_name`, `role`. Crea el user con `password_hash`. Devuelve `access_token` + `refresh_token`.
+- `POST /auth/login` — recibe `email` + `password`. Devuelve los dos tokens.
+- `POST /auth/refresh` — recibe `refresh_token`. Devuelve nuevo `access_token`.
+- `POST /auth/logout` — invalida el refresh token del usuario actual.
+- `POST /auth/change-password` — recibe password actual + nueva.
+
+**Modelo de datos:**
+
+- Agregar columna `password_hash` a la tabla `users`.
+- Tabla nueva `refresh_tokens` (id, user_id, token_hash, expires_at, revoked_at).
+
+**Decisiones técnicas:**
+
+- **Hashing:** `passlib[bcrypt]` o `argon2-cffi`. Default bcrypt.
+- **Tokens:** `pyjwt` con HS256. Secret en env var `JWT_SECRET_KEY` (mínimo 32 chars random, rotable).
+- **Lifetimes:** access token 15 min, refresh token 7 días.
+- **Storage del refresh token:** se devuelve al cliente, se guarda hasheado en BD para poder revocarlo.
+- **Cliente:** envía `Authorization: Bearer <access_token>` en cada request.
+- **Compatibilidad con Fase 6A:** durante la migración, `get_current_user` acepta tanto JWT como headers mock (controlado por env var `AUTH_MODE=mock|jwt`).
+
+**Cambios en `get_current_user`:**
+
+```python
+def get_current_user(authorization: str = Header(None)) -> AuthenticatedUser:
+    if settings.auth_mode == "mock":
+        # Fase 6A: lee X-User-Id, X-User-Email, X-User-Role
+        ...
+    else:
+        # Fase 6B: parsea el JWT y valida firma + expiración
+        token = authorization.removeprefix("Bearer ").strip()
+        payload = jwt.decode(token, settings.jwt_secret_key, algorithms=["HS256"])
+        return AuthenticatedUser(...)
+```
+
+**Criterio de aceptación:**
+
+- `POST /auth/register` crea user con `password_hash` (nunca plaintext en BD).
+- `POST /auth/login` con credenciales válidas devuelve dos tokens.
+- Request sin `Authorization` header → `401`.
+- Request con token expirado → `401`.
+- Request con token modificado (firma inválida) → `401`.
+- `POST /auth/refresh` con refresh token revocado → `401`.
+- Cambiar `AUTH_MODE=mock` en Render permite volver al modo legacy sin redeploy.
+
+**Variables de entorno nuevas:**
+
+| Variable | Valores | Propósito |
+|---|---|---|
+| `AUTH_MODE` | `mock` (default) / `jwt` | Cuál mecanismo de auth está activo |
+| `JWT_SECRET_KEY` | string aleatorio | Secret para firmar tokens. Rotar al deployar producción real |
+| `JWT_ACCESS_TTL_MINUTES` | int (default 15) | Lifetime del access token |
+| `JWT_REFRESH_TTL_DAYS` | int (default 7) | Lifetime del refresh token |
+
+**Riesgos / decisiones pendientes:**
+
+- ¿Permitimos auto-registro de cualquier rol o solo `student`? Probable: solo `student`; tutores y company_admin los crea el admin.
+- ¿Email verification? Post-MVP. Por ahora se asume que el email es válido.
+- ¿Rate limiting en login? Post-MVP, vía middleware (slowapi).
+- ¿OAuth con Google? Útil porque los alumnos ya tienen cuenta Google (Equipo 1 usa form de Google para onboarding). Sería una **Épica 9 separada** si avanza.
+
+**Esfuerzo estimado:** 6-8 h.
+
+### Por qué dividir en fases
+
+La Fase 6A desbloquea el resto del backlog (Tutores, Alertas, Validaciones todas necesitan saber quién es el usuario actual). Hacer JWT directo desde el día 1 retrasa la entrega del TP.
+
+La separación también prueba que el patrón de `Depends(get_current_user)` es el correcto: si la Fase 6B se hace bien, **ningún router cambia** entre las dos fases.
 
 ---
 
