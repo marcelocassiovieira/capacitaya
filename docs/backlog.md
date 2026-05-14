@@ -1,8 +1,27 @@
-# Backlog — Épicas pendientes
+# Backlog
 
-Backlog de las próximas épicas para Equipo 2 (Capacitación + Tutores). Cada épica lista user stories, endpoints involucrados, esfuerzo estimado y criterio de aceptación.
+Vista unificada del trabajo de Equipo 2 (Capacitación + Tutores). Cada épica lista user stories, endpoints, criterio de aceptación y esfuerzo (real para las completadas, estimado para las pendientes).
 
-Estado actual: ver [5p-coverage.md](5p-coverage.md) y [scope-equipos.md](scope-equipos.md).
+Estado del modelo 5P y arquitectura: [5p-coverage.md](5p-coverage.md), [ai-integration.md](ai-integration.md), [scope-equipos.md](scope-equipos.md).
+
+## Resumen
+
+| | Épica | Estado | Esfuerzo |
+|---|---|---|---|
+| C1 | MVP backend FastAPI + módulo users | ✅ Completada | ~4 h |
+| C2 | Módulo learning_paths con MockPlanGenerator | ✅ Completada | ~6 h |
+| C3 | Persistencia en PostgreSQL (Neon + Render) | ✅ Completada | ~5 h |
+| C4 | Generación con IA: Groq + Gemini con fallback | ✅ Completada | ~6 h |
+| C5 | Módulo attempts con Paciencia (4° P) | ✅ Completada | ~3 h |
+| C6 | Módulo resources con anti-alucinación de URLs | ✅ Completada | ~3 h |
+| 1 | Perseverancia y métricas del alumno | ⚠️ Pendiente | 3-4 h |
+| 2 | Tutores y asignaciones | ⚠️ Pendiente | 4-5 h |
+| 3 | Sistema de alertas | ⚠️ Pendiente | 3-4 h |
+| 4 | Next-unit logic | ⚠️ Pendiente | 2-3 h |
+| 5 | Validaciones críticas | ⚠️ Pendiente | 3 h |
+| 6 | Auth (mock + JWT real) | ⚠️ Pendiente | 9-12 h |
+| 7 | Eventos hacia Equipo 1 | ⚠️ Pendiente | 2 h |
+| 8 | Calidad técnica (tests, CORS, Alembic) | ⚠️ Pendiente | 4-6 h |
 
 ## Orden sugerido para cerrar el MVP del modelo
 
@@ -14,6 +33,191 @@ Estado actual: ver [5p-coverage.md](5p-coverage.md) y [scope-equipos.md](scope-e
 Las cuatro juntas dejan el sistema completo según los documentos del modelo. Total estimado: ~13-16 horas.
 
 ---
+
+# Épicas completadas
+
+## Épica C1 — MVP backend FastAPI + módulo users
+
+Levantar el esqueleto del backend con el patrón de módulo que se replica en todo el sistema, y entregar el primer módulo de dominio (`users`) para registrar a los actores del modelo.
+
+**User stories:**
+
+- Como dev quiero un patrón consistente (router/service/repository/models/schemas) para que el código sea mantenible cuando crezca.
+- Como admin quiero registrar usuarios con rol (`student`, `tutor`, `company_admin`, `admin`) para identificar a los actores del sistema.
+- Como sistema quiero validar que no se repitan emails.
+
+**Endpoints entregados:**
+
+- `POST /users`, `GET /users`, `GET /users/{id}`, `PATCH /users/{id}`, `DELETE /users/{id}`
+- `GET /health`
+
+**Criterio de aceptación cumplido:**
+
+- Email duplicado devuelve `409 Conflict`.
+- ID inexistente devuelve `404`.
+- Patrón de módulo documentado en `docs/backend-onboarding.md`.
+
+**Commits:** `be3462d` (Initial FastAPI MVP backend).
+
+---
+
+## Épica C2 — Módulo learning_paths con MockPlanGenerator
+
+Implementar el primer módulo pedagógico que consume el GapReport del Equipo 1 y genera un plan con módulos por skill y unidades por fase 5P (Pasión / Play / Práctica). Sin IA todavía, para validar la estructura y el contrato.
+
+**User stories:**
+
+- Como sistema quiero recibir un GapReport y producir un plan con módulos ordenados por prioridad.
+- Como sistema quiero rechazar GapReports donde todas las skills estén en READY (no hay nada que enseñar).
+- Como dev quiero poder cambiar el generador (Mock → IA real) sin tocar el resto del sistema.
+
+**Endpoints entregados:**
+
+- `POST /learning-paths`
+- `GET /learning-paths`
+- `GET /learning-paths/{id}`
+- `GET /students/{email}/learning-paths`
+
+**Criterio de aceptación cumplido:**
+
+- Contrato del GapReport alineado con `docs/gap-engine-mvp.md`.
+- Patrón Protocol + factory en `plan_generator/` para soportar múltiples implementaciones.
+- 3 fases 5P (Pasión / Play / Práctica) por skill MISSING o NEEDS_WORK.
+- Cobertura del modelo 5P documentada en `docs/5p-coverage.md`.
+
+**Commits:** `16873c0`, `2be5e49` (persistence layer Protocol + in-memory).
+
+---
+
+## Épica C3 — Persistencia en PostgreSQL (Neon + Render)
+
+Llevar el backend de in-memory a una base real y deployarlo en internet con auto-deploy desde main.
+
+**User stories:**
+
+- Como cliente externo quiero que la API esté disponible en una URL pública.
+- Como sistema quiero que los datos sobrevivan a reinicios del contenedor.
+- Como dev quiero auto-deploy desde main para no manejar deploys manuales.
+
+**Cambios entregados:**
+
+- Web Service en Render (free tier) con auto-deploy desde main.
+- PostgreSQL en Neon (free tier serverless).
+- `app/config.py` normaliza la URL al driver `postgresql+psycopg://`.
+- `app/main.py` corre `Base.metadata.create_all` en el lifespan startup.
+- Migración del repositorio de `learning_paths` a SQLAlchemy con `plan_json` como JSON serializado.
+- Pin de Python 3.12 en `.python-version` (sin esto Render usa 3.14 y SQLAlchemy 2.0.36 rompe).
+
+**Criterio de aceptación cumplido:**
+
+- URL pública: `https://capacity-ar-ap.onrender.com`.
+- Push a main dispara redeploy automático en 2-4 min.
+- Datos persisten entre reinicios del contenedor.
+
+**Commits:** `f3580ec`, `6d92bce`, `c67b725`, `700051c`.
+
+---
+
+## Épica C4 — Generación con IA: Groq + Gemini con fallback
+
+Reemplazar el MockPlanGenerator por LLMs reales, manteniendo la estructura híbrida (código determinístico para la estructura del plan, LLM solo para el contenido). Multi-proveedor para no depender de uno solo.
+
+**User stories:**
+
+- Como alumno quiero contenido educativo personalizado a mis intereses y empresa objetivo, generado en tiempo real.
+- Como sistema quiero soportar dos proveedores de IA y elegirlos por env var.
+- Como sistema quiero nunca romper la API por culpa del LLM: si falla, caer a Mock automáticamente.
+- Como dev quiero pedir ejercicios estructurados (5 multiple_choice con A/B/C/D) que sean evaluables automáticamente.
+
+**Cambios entregados:**
+
+- `app/shared/llm.py` con `GeminiClient` y `GroqClient` (misma interfaz).
+- `plan_generator/_base_llm.py` con clase base abstracta que paraleliza las llamadas con `ThreadPoolExecutor`.
+- `GeminiPlanGenerator` y `GroqPlanGenerator` como sub-clases de 4 líneas.
+- Factory que lee env var `PLAN_GENERATOR` y envuelve en `_PlanGeneratorWithMockFallback`.
+- Prompts versionados en `prompts.py` con instrucciones específicas por fase 5P (tono rioplatense, conexión con intereses, ejercicios A/B/C/D).
+- Schema de respuesta del LLM declarado explícitamente para evitar features que Gemini no soporta.
+
+**Criterio de aceptación cumplido:**
+
+- `PLAN_GENERATOR=groq` genera plan con `generator_used: "groq"` en 5-15s.
+- `PLAN_GENERATOR=gemini` genera plan equivalente con `generator_used: "gemini"`.
+- Si el LLM falla (cuota, timeout), el plan se devuelve con `generator_used: "mock"`, sin romper.
+- 5 ejercicios multiple_choice por skill con `expected_answer` como letra única.
+- Cambiar de proveedor en producción no requiere tocar código.
+
+**Commits:** `7209bb5`, `c2b1e14`, `d5083a5`.
+
+---
+
+## Épica C5 — Módulo attempts con Paciencia (4° P)
+
+Cerrar el ciclo del alumno: que pueda responder ejercicios, recibir feedback empático y avanzar según mastery 80%. Activa la 4° P del modelo 5P de forma transversal.
+
+**User stories:**
+
+- Como alumno quiero responder un ejercicio del plan y saber si acerté.
+- Como alumno quiero recibir un mensaje empático cuando me equivoco, sin que me revelen la respuesta.
+- Como sistema quiero calcular el mastery por skill (aciertos / intentos) y marcar cuando supera el 80%.
+- Como alumno quiero ver mi historial de intentos.
+- Como sistema quiero rechazar intentos sobre planes que no son del alumno (403).
+
+**Endpoints entregados:**
+
+- `POST /attempts`
+- `GET /attempts/{id}`
+- `GET /students/{email}/attempts`
+
+**Cambios entregados:**
+
+- Tabla `attempts` con `learning_path_id` + `module_index` + `unit_index` + `exercise_index` como identificador compuesto (sin tocar el `plan_json`).
+- Evaluación por string match (sirve para multiple_choice).
+- `attempts/feedback.py` con generación de feedback empático vía LLM activo (Groq o Gemini).
+- Fallback a mensaje estático si el LLM falla.
+
+**Criterio de aceptación cumplido:**
+
+- Respuesta correcta: `is_correct: true`, mensaje de felicitación determinístico con `skill_mastery`.
+- Respuesta incorrecta: `is_correct: false`, mensaje empático generado por IA que NO revela la respuesta esperada.
+- Intento sobre plan ajeno: `403 Forbidden`.
+- Mastery se recalcula al consultar el historial (no se persiste, se computa).
+
+**Commits:** `6a33951`.
+
+---
+
+## Épica C6 — Módulo resources con anti-alucinación de URLs
+
+Enriquecer cada unit del plan con material de estudio externo (videos, guías, sandboxes). Generado por LLM pero con guardrails para que los links no apunten a recursos inexistentes.
+
+**User stories:**
+
+- Como alumno quiero ver videos, guías y sandboxes asociados a cada unit del plan.
+- Como sistema quiero cachear los recursos por (skill, fase) para no llamar al LLM cada vez.
+- Como sistema quiero garantizar que los links generados no sean URLs alucinadas por el LLM.
+
+**Cambios entregados:**
+
+- Tabla `resources` con clave funcional `(skill_name, phase)`.
+- `resources/suggester.py` con prompt que pide al LLM `title + source + search_terms` (no URL directa).
+- Whitelist de dominios estables (`_KNOWN_DOC_DOMAINS`): MDN, git-scm.com, react.dev, freecodecamp.org, docs.python.org, etc.
+- Para videos: armado de URL como `https://www.youtube.com/results?search_query=...` (búsqueda, no link directo).
+- Para docs canónicas: URL aceptada solo si matchea la whitelist.
+- Pattern cache-aside en `resources/service.py`: si hay rows en BD reutilizar, si no pedir al LLM y persistir.
+- Embed de los recursos dentro del `plan_json` al generar el plan.
+
+**Criterio de aceptación cumplido:**
+
+- Cada unit del plan generado trae 2-3 recursos en `unit.resources[]`.
+- Las URLs de videos son links de búsqueda (nunca mueren).
+- Las URLs de documentación canónica apuntan a dominios reales whitelisteados.
+- Segundo plan con misma skill reutiliza los mismos recursos (cero llamadas al LLM).
+
+**Commits:** `5c0f901`.
+
+---
+
+# Épicas pendientes
 
 ## Épica 1 — Perseverancia y métricas del alumno
 
