@@ -43,6 +43,14 @@ Roles válidos: `student`, `tutor`, `company_admin`, `admin`.
 | `GET` | `/learning-paths/{id}` | Obtener un plan por id |
 | `GET` | `/students/{email}/learning-paths` | Listar planes de un estudiante |
 
+### Attempts (ejercicios resueltos por el alumno)
+
+| Método | Ruta | Descripción |
+|---|---|---|
+| `POST` | `/attempts` | Registrar intento, evalúa y devuelve feedback con IA |
+| `GET` | `/attempts/{id}` | Ver un attempt |
+| `GET` | `/students/{email}/attempts` | Historial de un estudiante |
+
 ---
 
 ## USERS — curls
@@ -237,13 +245,201 @@ Esperado: `422 Unprocessable Entity` con detalle del campo faltante.
 
 ---
 
-## Ver cómo Gemini personaliza la respuesta
+## ATTEMPTS — curls
+
+El módulo `attempts` cierra el ciclo del alumno: registra cada respuesta a un ejercicio, evalúa, calcula mastery y devuelve feedback empático con IA (Paciencia, 4° P del modelo 5P) cuando hay errores.
+
+**Identificación del ejercicio:** se usa un identificador compuesto de 4 campos (`learning_path_id`, `module_index`, `unit_index`, `exercise_index`) en lugar de un ID directo. El servidor abre el plan, navega esa posición, lee el `expected_answer` original y compara.
+
+**Precondición:** tiene que existir un `learning_path` previo con ejercicios en la unit de práctica (`unit_index=2`). Si tu plan tiene `generator_used: "mock"`, los ejercicios son placeholders y van a ser triviales de responder.
+
+### A. Responder un ejercicio correctamente
+
+Suponiendo que generaste un plan con id `7`, en JavaScript (`module_index=0`), unit Práctica (`unit_index=2`), primer ejercicio (`exercise_index=0`), con `expected_answer: "B"`:
+
+```bash
+curl -X POST https://capacity-ar-ap.onrender.com/attempts \
+  -H "Content-Type: application/json" \
+  -d '{
+    "student_email": "carlos.gamer@example.com",
+    "learning_path_id": 7,
+    "module_index": 0,
+    "unit_index": 2,
+    "exercise_index": 0,
+    "answer": "B",
+    "time_spent_seconds": 45
+  }'
+```
+
+Esperado:
+
+- `is_correct: true`.
+- `score: 1.0`.
+- `ai_feedback`: mensaje determinístico de felicitación.
+- `skill_mastery`: 1.0 si es el primer intento correcto.
+- `mastery_threshold_reached: true` si `skill_mastery >= 0.80`.
+
+### B. Responder mal (activa Paciencia 5P)
+
+Mismo plan, otro ejercicio:
+
+```bash
+curl -X POST https://capacity-ar-ap.onrender.com/attempts \
+  -H "Content-Type: application/json" \
+  -d '{
+    "student_email": "carlos.gamer@example.com",
+    "learning_path_id": 7,
+    "module_index": 0,
+    "unit_index": 2,
+    "exercise_index": 1,
+    "answer": "Z"
+  }'
+```
+
+Esperado:
+
+- `is_correct: false`.
+- `score: 0.0`.
+- `ai_feedback`: mensaje empático generado por IA en español rioplatense, **que NO revela la respuesta correcta**, sino que ofrece una pista conceptual y motiva a intentar de nuevo.
+- `skill_mastery` recalculado considerando aciertos / total de intentos previos.
+
+### C. Ver un attempt específico
+
+```bash
+curl https://capacity-ar-ap.onrender.com/attempts/1
+```
+
+### D. Historial de un estudiante
+
+```bash
+curl https://capacity-ar-ap.onrender.com/students/carlos.gamer@example.com/attempts
+```
+
+Devuelve ordenado del más reciente al más viejo, con `skill_mastery` actualizado al momento de la consulta (no cuando se creó el attempt).
+
+### E. Forzar un 404 — plan inexistente
+
+```bash
+curl -X POST https://capacity-ar-ap.onrender.com/attempts \
+  -H "Content-Type: application/json" \
+  -d '{
+    "student_email": "x@x.com",
+    "learning_path_id": 99999,
+    "module_index": 0,
+    "unit_index": 2,
+    "exercise_index": 0,
+    "answer": "A"
+  }'
+```
+
+Esperado: `404 Not Found`.
+
+### F. Forzar un 403 — intentar resolver el plan de otro
+
+Si el email no coincide con el `student_email` del plan:
+
+```bash
+curl -X POST https://capacity-ar-ap.onrender.com/attempts \
+  -H "Content-Type: application/json" \
+  -d '{
+    "student_email": "otro@example.com",
+    "learning_path_id": 7,
+    "module_index": 0,
+    "unit_index": 2,
+    "exercise_index": 0,
+    "answer": "A"
+  }'
+```
+
+Esperado: `403 Forbidden` con `"El learning path no pertenece a este estudiante."`.
+
+### Verificar lo persistido
+
+En Neon SQL Editor:
+
+```sql
+SELECT id, skill_name, answer, expected_answer, is_correct,
+       score, LEFT(ai_feedback, 80) AS feedback_preview, created_at
+FROM attempts
+ORDER BY id DESC;
+```
+
+### Ver mastery actual de una skill
+
+```sql
+SELECT skill_name,
+       COUNT(*) AS attempts,
+       SUM(CASE WHEN is_correct THEN 1 ELSE 0 END) AS aciertos,
+       ROUND(SUM(CASE WHEN is_correct THEN 1.0 ELSE 0.0 END) / COUNT(*), 2) AS mastery
+FROM attempts
+WHERE student_email = 'carlos.gamer@example.com'
+GROUP BY skill_name;
+```
+
+---
+
+## RESOURCES — qué hay y cómo verlo
+
+El módulo `resources` no expone endpoints CRUD propios todavía. Los recursos se generan automáticamente cuando se crea un plan: cada unit del plan_json viene enriquecida con un array `resources` de 2-3 entradas (videos, guías, sandboxes).
+
+### Inspeccionar recursos de un plan recién generado
+
+Después de un `POST /learning-paths`, mirar:
+
+```json
+"modules": [
+  {
+    "skill_name": "JavaScript",
+    "units": [
+      {
+        "phase": "pasion",
+        "resources": [
+          {
+            "type": "video",
+            "title": "...",
+            "url": "https://www.youtube.com/results?search_query=...",
+            "source": "FreeCodeCamp",
+            "duration_minutes": 60
+          },
+          ...
+        ]
+      },
+      ...
+    ]
+  }
+]
+```
+
+### Listar el catálogo cacheado en BD
+
+```sql
+SELECT skill_name, phase, type, title, source, url, generated_by, created_at
+FROM resources
+WHERE is_active = TRUE
+ORDER BY skill_name, phase, id;
+```
+
+La primera vez que se pide un plan con una skill nueva, el LLM genera los recursos y los guarda. Planes posteriores con la misma skill reutilizan esos recursos sin volver a llamar al LLM.
+
+### Forzar regeneración de recursos para una skill
+
+Si querés que el sistema sugiera recursos nuevos para una skill (por ejemplo, porque los actuales no te gustaron):
+
+```sql
+DELETE FROM resources WHERE skill_name = 'JavaScript';
+```
+
+El próximo plan con JavaScript va a disparar la generación de nuevo.
+
+---
+
+## Ver cómo la IA personaliza la respuesta
 
 Los siguientes ejemplos están pensados para ejecutarse en orden y observar cómo **cambia el contenido generado** según el estudiante, sus intereses, la empresa y el rol objetivo. Cada caso usa una skill MISSING para que se generen 3 unidades (pasión, play, práctica).
 
 Después de cada POST, mirar especialmente:
 
-- `generator_used` debería decir `"gemini"` (si dice `"mock"`, Gemini falló y cayó al fallback).
+- `generator_used` debería decir `"groq"` o `"gemini"` según `PLAN_GENERATOR` esté seteado en Render (si dice `"mock"`, el LLM falló y cayó al fallback).
 - `modules[0].units[0].content` (fase Pasión) debería mencionar **los intereses del estudiante** y **la empresa objetivo**.
 - `modules[0].units[2].exercises[]` (fase Práctica) debería tener ejercicios reales con `prompt`, `expected_answer` y `difficulty`.
 

@@ -22,7 +22,7 @@ Esta distinción está explícita en los documentos del modelo:
 | **Pasión** | Contenido del plan | ✅ Implementada | `app/modules/learning_paths/plan_generator/prompts.py` (fase `pasion`) |
 | **Play** | Contenido del plan | ✅ Implementada | `app/modules/learning_paths/plan_generator/prompts.py` (fase `play`) |
 | **Práctica** | Contenido del plan | ✅ Implementada | `app/modules/learning_paths/plan_generator/prompts.py` (fase `practica`) |
-| **Paciencia** | Transversal en runtime | ⚠️ Pendiente | Vivirá en `app/modules/attempts/` + `app/modules/alerts/` |
+| **Paciencia** | Transversal en runtime | ✅ Implementada | `app/modules/attempts/feedback.py` (feedback empático al fallar un ejercicio) |
 | **Perseverancia** | Transversal en runtime | ⚠️ Pendiente | Vivirá en `app/modules/student_metrics/` + `app/modules/alerts/` |
 
 ## Detalle de cada P
@@ -55,18 +55,28 @@ Esta distinción está explícita en los documentos del modelo:
 
 **Verificable:** `modules[*].units[2].exercises` debe tener 5 elementos, cada uno con `type: "multiple_choice"`, opciones A/B/C/D embebidas en el `prompt`, y `expected_answer` con una sola letra.
 
-### Paciencia — pendiente, transversal
+### Paciencia — implementada, transversal
 
-**Qué hace:** detectar frustración del estudiante (errores repetidos, sesiones aceleradas, lenguaje agresivo) y responder con mensajes empáticos que normalizan el error.
+**Qué hace:** responde con mensajes empáticos que normalizan el error cuando el alumno falla un ejercicio. Activa la 4° P del modelo 5P de forma contextualizada.
 
-**Por qué no está en el plan generado:** no es contenido educativo, es **una respuesta del sistema durante el uso del plan**. Se activa cuando el estudiante interactúa con un ejercicio y falla.
+**Dónde está:** [app/modules/attempts/feedback.py](../app/modules/attempts/feedback.py).
 
-**Dónde irá:**
+**Cómo funciona:**
 
-1. `app/modules/attempts/` — cuando un `POST /attempts` registra un intento fallido, llamar a Gemini con un prompt empático y devolver el mensaje en el campo `ai_feedback` del attempt. Ejemplo de mensaje generado:
-   > *"Tranqui, Carlos. El 73% de los desarrolladores necesitó más de un intento en este tipo de ejercicio. Te dejo una pista distinta…"*
+1. Cada `POST /attempts` evalúa la respuesta del alumno.
+2. Si `is_correct=False`, se invoca al LLM (Groq o Gemini según `PLAN_GENERATOR`) con un prompt que pide:
+   - Tono cercano, español rioplatense, segunda persona.
+   - Normalizar el error sin condescendencia.
+   - NO revelar la respuesta esperada.
+   - Ofrecer una pista conceptual y motivar a intentar de nuevo.
+   - Máximo 60 palabras.
+3. El mensaje queda persistido en el campo `ai_feedback` del attempt.
+4. Si el LLM falla (cuota, timeout), se devuelve un mensaje estático de respaldo para que el endpoint nunca rompa.
 
-2. `app/modules/alerts/` — disparar alerta tipo `ANOMALY_PATIENCE` cuando NLP detecta lenguaje agresivo en chat con el coach.
+**Lo que aún no está:**
+
+- Detección de lenguaje agresivo por NLP (alerta `ANOMALY_PATIENCE`). Va en el módulo `alerts/`.
+- Análisis de patrones agregados de frustración (varios fallos seguidos en distintas skills). También en `alerts/`.
 
 ### Perseverancia — pendiente, transversal
 
@@ -98,11 +108,11 @@ Esto **no es una omisión arquitectónica**. Los propios documentos del modelo s
 
 ## Roadmap para cerrar el modelo completo
 
-| Hito | Módulo a implementar | P que aparece |
-|---|---|---|
-| 1 | `attempts` (registrar intentos, feedback con Gemini) | Paciencia (mensaje empático ante error) |
-| 2 | `sessions` (tracking de actividad) | Insumo para perseverancia |
-| 3 | `student_metrics` (vista motivacional) | Perseverancia (progreso visible) |
-| 4 | `alerts` (LOW_PERSEVERANCE, ANOMALY_PATIENCE, etc.) | Refuerzo de ambas P + capa de tutor |
+| Hito | Módulo a implementar | P que aparece | Estado |
+|---|---|---|---|
+| 1 | `attempts` (registrar intentos, feedback con LLM) | Paciencia (mensaje empático ante error) | ✅ Implementado |
+| 2 | `sessions` (tracking de actividad) | Insumo para perseverancia | ⚠️ Pendiente |
+| 3 | `student_metrics` (vista motivacional) | Perseverancia (progreso visible) | ⚠️ Pendiente |
+| 4 | `alerts` (LOW_PERSEVERANCE, ANOMALY_PATIENCE, etc.) | Refuerzo de ambas P + capa de tutor | ⚠️ Pendiente |
 
 Ver `docs/training-module-design.md` para el diseño técnico detallado de cada uno.
