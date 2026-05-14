@@ -3,6 +3,8 @@ from enum import Enum
 
 from pydantic import BaseModel, ConfigDict, EmailStr, Field
 
+from app.modules.resources.schemas import ResourceView
+
 
 # Entrada: GapReport del Equipo 1.
 # El formato sigue lo definido en docs/gap-engine-mvp.md.
@@ -95,6 +97,7 @@ class GeneratedUnit(BaseModel):
     content: str
     estimated_minutes: int = Field(ge=1)
     exercises: list[GeneratedExercise] = Field(default_factory=list)
+    resources: list[ResourceView] = Field(default_factory=list)
 
 
 class GeneratedModule(BaseModel):
