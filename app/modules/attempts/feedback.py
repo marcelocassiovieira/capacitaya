@@ -1,9 +1,21 @@
 import logging
 
-from app.shared.llm import GeminiClient, LlmConfigurationError
+from app.config import settings
+from app.shared.llm import GeminiClient, GroqClient, LlmConfigurationError
 
 
 logger = logging.getLogger(__name__)
+
+
+def _build_feedback_client():
+    choice = settings.plan_generator.lower()
+    if choice == "groq":
+        return GroqClient()
+    if choice == "gemini":
+        return GeminiClient()
+    raise LlmConfigurationError(
+        f"PLAN_GENERATOR='{settings.plan_generator}' does not support LLM feedback."
+    )
 
 
 _FEEDBACK_SCHEMA: dict = {
@@ -64,7 +76,7 @@ def _failure_feedback(
     skill_mastery: float,
 ) -> str:
     try:
-        client = GeminiClient()
+        client = _build_feedback_client()
     except LlmConfigurationError:
         return _STATIC_FAILURE_MESSAGE
 
@@ -92,7 +104,7 @@ Devolve un JSON con la clave 'message' conteniendo el mensaje generado.
         return message or _STATIC_FAILURE_MESSAGE
     except Exception:
         logger.exception(
-            "Gemini failed to generate failure feedback for skill=%s; using static.",
+            "LLM failed to generate failure feedback for skill=%s; using static.",
             skill_name,
         )
         return _STATIC_FAILURE_MESSAGE

@@ -9,7 +9,7 @@ from app.modules.learning_paths.schemas import GapReport, GeneratedPlan
 logger = logging.getLogger(__name__)
 
 
-class _GeminiWithMockFallback:
+class _PlanGeneratorWithMockFallback:
     def __init__(self, primary: PlanGenerator, fallback: PlanGenerator) -> None:
         self._primary = primary
         self._fallback = fallback
@@ -19,23 +19,42 @@ class _GeminiWithMockFallback:
             return self._primary.generate(gap_report)
         except Exception:
             logger.exception(
-                "Gemini plan generation failed; falling back to MockPlanGenerator."
+                "Primary plan generator failed; falling back to MockPlanGenerator."
             )
             return self._fallback.generate(gap_report)
 
 
 def get_plan_generator() -> PlanGenerator:
-    if settings.plan_generator.lower() != "gemini":
-        return MockPlanGenerator()
+    choice = settings.plan_generator.lower()
 
-    try:
-        from app.modules.learning_paths.plan_generator.gemini import (
-            GeminiPlanGenerator,
-        )
+    if choice == "groq":
+        try:
+            from app.modules.learning_paths.plan_generator.groq import (
+                GroqPlanGenerator,
+            )
 
-        return _GeminiWithMockFallback(GeminiPlanGenerator(), MockPlanGenerator())
-    except Exception:
-        logger.exception(
-            "Could not initialize GeminiPlanGenerator; using MockPlanGenerator."
-        )
-        return MockPlanGenerator()
+            return _PlanGeneratorWithMockFallback(
+                GroqPlanGenerator(), MockPlanGenerator()
+            )
+        except Exception:
+            logger.exception(
+                "Could not initialize GroqPlanGenerator; using MockPlanGenerator."
+            )
+            return MockPlanGenerator()
+
+    if choice == "gemini":
+        try:
+            from app.modules.learning_paths.plan_generator.gemini import (
+                GeminiPlanGenerator,
+            )
+
+            return _PlanGeneratorWithMockFallback(
+                GeminiPlanGenerator(), MockPlanGenerator()
+            )
+        except Exception:
+            logger.exception(
+                "Could not initialize GeminiPlanGenerator; using MockPlanGenerator."
+            )
+            return MockPlanGenerator()
+
+    return MockPlanGenerator()
