@@ -135,14 +135,6 @@ Ver `docs/5p-coverage.md` para el mapeo detallado y por qué Paciencia/Persevera
 - **No remover el fallback a Mock** del plan_generator. Si el LLM falla, el endpoint sigue funcionando con plan placeholder y `generator_used: "mock"`.
 - **Anti-alucinación de URLs en `resources`**: para videos siempre usar search queries en YouTube (`https://www.youtube.com/results?search_query=...`). URLs canónicas solo para dominios whitelisteados en `suggester._KNOWN_DOC_DOMAINS`.
 
-## Variables de entorno relevantes
+## Variables de entorno
 
-| Variable | Valores | Propósito |
-|---|---|---|
-| `DATABASE_URL` | string | Conexión a Postgres. Soporta `postgres://`, `postgresql://`, `postgresql+psycopg://` |
-| `PLAN_GENERATOR` | `mock` / `groq` / `gemini` | Selecciona proveedor de IA |
-| `GROQ_API_KEY`, `GROQ_MODEL` | string | Si `PLAN_GENERATOR=groq` |
-| `GEMINI_API_KEY`, `GEMINI_MODEL` | string | Si `PLAN_GENERATOR=gemini` |
-| `APP_ENV`, `APP_DEBUG`, `APP_NAME` | misc | Configuración general |
-
-Cambiar de Groq a Gemini en producción: solo cambiar `PLAN_GENERATOR` en Render → Environment, no hace falta tocar código.
+`DATABASE_URL` (Postgres), `PLAN_GENERATOR` (`mock` / `groq` / `gemini`), `GROQ_API_KEY` + `GROQ_MODEL`, `GEMINI_API_KEY` + `GEMINI_MODEL`. Ver `docs/ai-integration.md` para detalles. Cambiar de proveedor en producción: editar `PLAN_GENERATOR` en Render → Environment, sin tocar código.
