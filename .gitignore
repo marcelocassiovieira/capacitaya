@@ -8,5 +8,5 @@ htmlcov/
 *.db
 
 node_modules/
-*/dist/*
-*/build/*
+dist/
+build/
