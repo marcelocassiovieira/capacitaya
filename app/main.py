@@ -38,7 +38,7 @@ app.include_router(student_paths_router, prefix="/api")
 app.include_router(attempts_router, prefix="/api")
 app.include_router(student_attempts_router, prefix="/api")
 
-_FRONTEND_DIR = Path("frontend/artifacts/capacitaya/dist/public")
+_FRONTEND_DIR = Path("frontend/dist/public")
 
 
 @app.get("/{full_path:path}", include_in_schema=False)
