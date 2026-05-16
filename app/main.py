@@ -13,6 +13,7 @@ from app.modules.learning_paths.router import (
     router as learning_paths_router,
     student_paths_router,
 )
+from app.modules.job_descriptions.router import router as job_descriptions_router
 from app.modules.users.router import router as users_router
 
 
@@ -31,6 +32,7 @@ def health_check() -> dict[str, str]:
 
 
 app.include_router(users_router)
+app.include_router(job_descriptions_router)
 app.include_router(learning_paths_router)
 app.include_router(student_paths_router)
 app.include_router(attempts_router)
