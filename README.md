@@ -38,6 +38,12 @@ app/
 ```
 
 ## Ejecutar local
+### Si tenés docker instalado:
+1. Copiá el .env.example a .env
+2. Ejecutá `docker compose up`
+3. El sitio queda en http://localhost:8000
+
+### Para ejecutarlo sin docker
 
 1. Crear entorno virtual:
 
