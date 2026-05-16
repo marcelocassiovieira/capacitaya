@@ -1,127 +1,141 @@
-# Capacity AR API
+# Capacitaya
 
-Backend MVP para una plataforma de aprendizaje adaptativo orientada a reducir la brecha entre secundaria y mercado laboral IT.
+Plataforma de aprendizaje adaptativo orientada a reducir la brecha entre secundaria y mercado laboral IT.
 
-Stack inicial:
+Stack:
 
-- Python 3.12
-- FastAPI
-- Uvicorn
-- PostgreSQL
-- SQLAlchemy
-- Render
+- **Backend**: Python 3.12, FastAPI, SQLAlchemy, PostgreSQL
+- **Frontend**: React 19, Vite, Tailwind CSS
+- **Deploy**: Render (backend + frontend como estático) + Neon (PostgreSQL serverless)
 
-## Organizacion del backend
+---
 
-- `router.py`: endpoints HTTP y dependencias de FastAPI
-- `service.py`: reglas de negocio y manejo de errores de aplicación
-- `repository.py`: acceso a datos con SQLAlchemy
-- `models.py`: modelos persistentes y definicion de tablas
-- `schemas.py`: contratos de entrada/salida con Pydantic
-- `database.py`: engine, sesiones y setup de base de datos
-- FastAPI + Uvicorn: aplicacion web y servidor HTTP/ASGI
-
-## Estructura
+## Estructura del proyecto
 
 ```text
-app/
+app/                          # Backend FastAPI
   main.py
   config.py
   database.py
   modules/
     users/
-      router.py
-      service.py
-      repository.py
-      models.py
-      schemas.py
+    learning_paths/
+    attempts/
+    resources/
+    job_descriptions/
+
+frontend/
+  artifacts/
+    capacitaya/               # App React/Vite (standalone)
+      src/
+      public/
+      package.json
+      vite.config.ts
+      Dockerfile
 ```
 
-## Ejecutar local
+### Organización del backend (por módulo)
 
-1. Crear entorno virtual:
+Cada módulo sigue capas con responsabilidad única:
+
+- `router.py` — endpoints HTTP y dependencias FastAPI
+- `service.py` — reglas de negocio y manejo de errores
+- `repository.py` — acceso a datos con SQLAlchemy
+- `models.py` — modelos y tablas
+- `schemas.py` — contratos Pydantic de entrada/salida
+
+---
+
+## Desarrollo local con Docker
+
+Es la forma recomendada. Levanta el backend, el frontend, la base de datos y pgAdmin con un solo comando.
+
+```bash
+cp .env.example .env
+docker compose up
+```
+
+| Servicio | URL |
+|---|---|
+| Backend (API) | http://localhost:8000 |
+| Frontend | http://localhost:3000 |
+| Documentación de endpoints (Swagger) | http://localhost:8000/docs |
+| pgAdmin | http://localhost:8888 |
+
+El frontend usa hot-reload: los cambios en `frontend/artifacts/capacitaya/src/` se reflejan en el browser sin reiniciar el contenedor.
+
+Para reconstruir las imágenes (por ejemplo, al agregar dependencias npm o pip):
+
+```bash
+docker compose up --build
+```
+
+---
+
+## Desarrollo local sin Docker
+
+### Backend
 
 ```bash
 python3.12 -m venv .venv
 source .venv/bin/activate
-```
-
-2. Instalar dependencias:
-
-```bash
 pip install -r requirements.txt
-```
-
-3. Configurar variables:
-
-```bash
 cp .env.example .env
+uvicorn app.main:app --reload
 ```
 
-4. Para probar sin instalar PostgreSQL, usar SQLite como base embebida local:
+Para usar SQLite en lugar de PostgreSQL, poner en `.env`:
 
 ```env
 DATABASE_URL=sqlite:///./capacity_ar_local.db
 ```
 
-Si querés probar contra PostgreSQL local, crear una base `capacity_ar` y usar:
-
-```env
-DATABASE_URL=postgresql+psycopg://postgres:postgres@localhost:5432/capacity_ar
-```
-
-5. Levantar API:
+### Frontend
 
 ```bash
-uvicorn app.main:app --reload
+cd frontend/artifacts/capacitaya
+npm install
+PORT=3000 BASE_PATH=/ npm run dev
 ```
 
-Endpoints útiles:
-
-- `GET /health`
-- `GET /docs`
-- `POST /users`
-- `GET /users`
-- `GET /users/{id}`
-- `PATCH /users/{id}`
-- `DELETE /users/{id}`
-
-Ejemplo:
-
-```bash
-curl -X POST http://localhost:8000/users \
-  -H "Content-Type: application/json" \
-  -d '{"first_name":"Ana","last_name":"Perez","email":"ana@example.com","role":"student"}'
-```
+---
 
 ## Deploy en Render
 
-Crear un PostgreSQL gestionado en Render y luego un Web Service apuntando a este repo.
+El deploy es automático desde la branch `main` vía webhook de GitHub.
 
-Build command:
+### Qué hace Render al deployar
 
-```bash
-pip install -r requirements.txt
-```
+1. Instala Node.js (vía Nix)
+2. Instala dependencias npm y hace el build del frontend (`npm run build`)
+3. Instala dependencias Python
+4. Inicia el servidor con uvicorn
 
-Start command:
+El frontend queda compilado como archivos estáticos en `frontend/artifacts/capacitaya/dist/public/` y FastAPI los sirve directamente. Las rutas de API viven bajo `/api/*`.
 
-```bash
-uvicorn app.main:app --host 0.0.0.0 --port $PORT
-```
+### Variables de entorno en Render
 
-Variables:
+Configurar en **Environment** del Web Service (no en `render.yaml`):
 
-- `DATABASE_URL`: external/internal database URL de Render PostgreSQL. La app normaliza URLs `postgres://...` o `postgresql://...` al driver `postgresql+psycopg://...`.
-- `APP_ENV=production`
-- `APP_DEBUG=false`
+| Variable | Descripción |
+|---|---|
+| `DATABASE_URL` | URL externa del PostgreSQL (Neon u otro). La app normaliza `postgres://` a `postgresql+psycopg://` automáticamente. |
+| `APP_ENV` | `production` |
+| `APP_DEBUG` | `false` |
+| `PLAN_GENERATOR` | `groq` o `gemini` (default: `mock` si no se setea) |
+| `GROQ_API_KEY` | API key de Groq |
+| `GEMINI_API_KEY` | API key de Google Gemini |
+| `PORT` | 3000 (de FastAPI) |
+### Base de datos
 
-Para MVP, las tablas se crean al iniciar la app con `Base.metadata.create_all`. Cuando el modelo empiece a cambiar con datos reales, el siguiente paso razonable es sumar Alembic.
+Las tablas se crean automáticamente al iniciar la app con `Base.metadata.create_all`. Cuando el modelo empiece a cambiar con datos reales en producción, el siguiente paso es sumar Alembic para migraciones.
 
-## Buenas prácticas mínimas para este MVP
+---
 
-- Mantener módulos por capacidad de negocio, no por tipo técnico global.
-- Poner reglas de negocio en `service.py`; no en routers.
-- Dejar SQLAlchemy aislado en repositorios.
-- No agregar auth hasta cerrar el flujo mínimo de usuarios y onboarding.
-- Usar `create_all` sólo en MVP; migraciones con Alembic cuando haya cambios de schema en ambientes persistentes.
+## Buenas prácticas para este MVP
+
+- Módulos por capacidad de negocio, no por tipo técnico global.
+- Reglas de negocio en `service.py`, nunca en routers.
+- SQLAlchemy aislado en `repository.py`.
+- Auth diferida intencionalmente hasta cerrar el flujo mínimo.
+- `create_all` sólo en MVP; migraciones con Alembic cuando haya cambios de schema en producción.
