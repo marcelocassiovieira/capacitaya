@@ -41,7 +41,7 @@ app/
 ### Si tenés docker instalado:
 1. Copiá el .env.example a .env
 2. Ejecutá `docker compose up`
-3. El sitio queda en http://localhost:8000
+3. El sitio queda en http://localhost:8000 y el admin de la base de datos en http://localhost:8888
 
 ### Para ejecutarlo sin docker
 
