@@ -107,7 +107,7 @@ El cliente tipado vive en `frontend/src/lib/api.ts` y expone cuatro namespaces q
 ### Namespaces disponibles
 
 ```ts
-import { users, learningPaths, attempts, jobDescriptions } from "@/lib/api";
+import { users, learningPaths, attempts } from "@/lib/api";
 ```
 
 | Namespace | Funciones |
@@ -115,7 +115,6 @@ import { users, learningPaths, attempts, jobDescriptions } from "@/lib/api";
 | `users` | `list()`, `get(id)`, `create(data)` |
 | `learningPaths` | `list()`, `get(id)`, `getByStudent(email)` |
 | `attempts` | `create(data)`, `get(id)`, `getByStudent(email)` |
-| `jobDescriptions` | `list()`, `get(id)`, `create(data)` |
 
 ### Cómo usar con React Query
 
@@ -159,7 +158,7 @@ En dev (`docker compose up`), el frontend corre en `:3000` y el backend en `:800
 El archivo `api.ts` exporta todos los tipos necesarios:
 
 ```ts
-import type { User, LearningPath, Module, Unit, Exercise, Attempt, JobDescription } from "@/lib/api";
+import type { User, LearningPath, Module, Unit, Exercise, Attempt } from "@/lib/api";
 ```
 
 ---
