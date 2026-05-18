@@ -6,7 +6,7 @@ Guía de prueba de la API deployada para que los compañeros del equipo puedan p
 
 - **API base:** https://capacity-ar-ap.onrender.com
 - **Swagger UI (probar desde el navegador):** https://capacity-ar-ap.onrender.com/docs
-- **Health check:** https://capacity-ar-ap.onrender.com/health
+- **Health check:** https://capacity-ar-ap.onrender.com/api/health
 
 ## Antes de empezar
 
@@ -15,7 +15,7 @@ El plan free de Render **duerme el servidor tras 15 minutos sin tráfico**. El p
 Para "calentar" el server antes de una prueba o demo:
 
 ```bash
-curl https://capacity-ar-ap.onrender.com/health
+curl https://capacity-ar-ap.onrender.com/api/health
 ```
 
 Cuando devuelva `{"status":"ok","environment":"production"}` ya está listo.
@@ -26,30 +26,39 @@ Cuando devuelva `{"status":"ok","environment":"production"}` ya está listo.
 
 | Método | Ruta | Descripción |
 |---|---|---|
-| `GET` | `/users` | Listar usuarios (con paginación) |
-| `POST` | `/users` | Crear usuario |
-| `GET` | `/users/{id}` | Obtener un usuario por id |
-| `PATCH` | `/users/{id}` | Actualizar parcialmente |
-| `DELETE` | `/users/{id}` | Borrar usuario |
+| `GET` | `/api/users` | Listar usuarios (con paginación) |
+| `POST` | `/api/users` | Crear usuario |
+| `GET` | `/api/users/{id}` | Obtener un usuario por id |
+| `PATCH` | `/api/users/{id}` | Actualizar parcialmente |
+| `DELETE` | `/api/users/{id}` | Borrar usuario |
 
 Roles válidos: `student`, `tutor`, `company_admin`, `admin`.
+
+### Gap analyses (carga de documentos → summary)
+
+| Método | Ruta | Descripción |
+|---|---|---|
+| `POST` | `/api/gap-analyses` | Subir 2 documentos (estudiante + oferta), Groq extrae GapReport, guarda en BD. NO dispara plan. |
+| `GET` | `/api/gap-analyses/{id}` | Ver un gap por id |
+| `GET` | `/api/students/{email}/gap-analyses` | Listar gaps de un estudiante |
+| `POST` | `/api/students/{email}/generate-learning-path` | A partir del último gap pendiente del estudiante, dispara la generación del learning_path |
 
 ### Learning paths
 
 | Método | Ruta | Descripción |
 |---|---|---|
-| `POST` | `/learning-paths` | Crear plan a partir de un GapReport |
-| `GET` | `/learning-paths` | Listar planes |
-| `GET` | `/learning-paths/{id}` | Obtener un plan por id |
-| `GET` | `/students/{email}/learning-paths` | Listar planes de un estudiante |
+| `POST` | `/api/learning-paths` | Crear plan a partir de un GapReport JSON (sin documentos) |
+| `GET` | `/api/learning-paths` | Listar planes |
+| `GET` | `/api/learning-paths/{id}` | Obtener un plan por id |
+| `GET` | `/api/students/{email}/learning-paths` | Listar planes de un estudiante |
 
 ### Attempts (ejercicios resueltos por el alumno)
 
 | Método | Ruta | Descripción |
 |---|---|---|
-| `POST` | `/attempts` | Registrar intento, evalúa y devuelve feedback con IA |
-| `GET` | `/attempts/{id}` | Ver un attempt |
-| `GET` | `/students/{email}/attempts` | Historial de un estudiante |
+| `POST` | `/api/attempts` | Registrar intento, evalúa y devuelve feedback con IA |
+| `GET` | `/api/attempts/{id}` | Ver un attempt |
+| `GET` | `/api/students/{email}/attempts` | Historial de un estudiante |
 
 ---
 
@@ -58,7 +67,7 @@ Roles válidos: `student`, `tutor`, `company_admin`, `admin`.
 ### Crear
 
 ```bash
-curl -X POST https://capacity-ar-ap.onrender.com/users \
+curl -X POST https://capacity-ar-ap.onrender.com/api/users \
   -H "Content-Type: application/json" \
   -d '{"first_name":"Ana","last_name":"Perez","email":"ana@example.com","role":"student"}'
 ```
@@ -68,15 +77,93 @@ Roles válidos: `student`, `tutor`, `company_admin`, `admin`. Reintento con el m
 ### Listar / ver / actualizar / borrar
 
 ```bash
-curl https://capacity-ar-ap.onrender.com/users
-curl "https://capacity-ar-ap.onrender.com/users?offset=0&limit=10"
-curl https://capacity-ar-ap.onrender.com/users/1
-curl -X PATCH https://capacity-ar-ap.onrender.com/users/1 \
+curl https://capacity-ar-ap.onrender.com/api/users
+curl "https://capacity-ar-ap.onrender.com/api/users?offset=0&limit=10"
+curl https://capacity-ar-ap.onrender.com/api/users/1
+curl -X PATCH https://capacity-ar-ap.onrender.com/api/users/1 \
   -H "Content-Type: application/json" -d '{"last_name":"Gonzalez"}'
-curl -X DELETE https://capacity-ar-ap.onrender.com/users/2
+curl -X DELETE https://capacity-ar-ap.onrender.com/api/users/2
 ```
 
-`GET /users/9999` → `404`. `DELETE` exitoso → `204` sin body.
+`GET /api/users/9999` → `404`. `DELETE` exitoso → `204` sin body.
+
+---
+
+## GAP ANALYSES — curls
+
+Flujo en dos pasos:
+
+1. **Subir documentos** del estudiante y de la oferta → Groq extrae un GapReport y lo guarda. Rápido (3-5s). NO dispara plan.
+2. **Disparar el plan más tarde** identificando al estudiante por email. El sistema busca el último gap pendiente y llama a `learning_paths`. Lento (15-25s), pero aislado del primer paso.
+
+Aceptamos `PDF`, `DOCX` y `TXT`. Máximo 5MB por archivo, mínimo 50 caracteres tras extraer texto.
+
+### Paso 1 — Subir documentos y generar summary
+
+```bash
+curl -X POST https://capacity-ar-ap.onrender.com/api/gap-analyses \
+  -F "student_email=sofia.maldonado@example.com" \
+  -F "company_email=data-talent@globant.com" \
+  -F "student_doc=@/ruta/al/cv_sofia.pdf" \
+  -F "position_doc=@/ruta/a/oferta_globant.pdf"
+```
+
+Respuesta `201` con `id`, `summary`, `readiness_score`, `gap_report.skills` calculadas, `learning_path_id: null`.
+
+**Tip rápido:** podés probar con dos `.txt`. Acordate del `@` antes de la ruta (es la convención de curl para subir archivos).
+
+### Paso 2 — Disparar el plan a partir del email
+
+Toma el último gap pendiente (`learning_path_id IS NULL`) del estudiante:
+
+```bash
+curl -X POST https://capacity-ar-ap.onrender.com/api/students/sofia.maldonado@example.com/generate-learning-path
+```
+
+Respuesta `201` con `{ gap_analysis, learning_path }`. El `gap_analysis` ahora tiene `learning_path_id` apuntando al plan recién creado.
+
+### Consultar / listar
+
+```bash
+# Un gap por id
+curl https://capacity-ar-ap.onrender.com/api/gap-analyses/1
+
+# Todos los gaps de un estudiante (devuelve array, ordenado del más reciente al más viejo)
+curl https://capacity-ar-ap.onrender.com/api/students/sofia.maldonado@example.com/gap-analyses
+```
+
+### Casos de error
+
+- Archivo con extensión distinta a `.pdf/.docx/.txt` → `422`.
+- Archivo > 5MB → `413`.
+- Texto extraído < 50 caracteres (PDF escaneado sin OCR, archivo casi vacío) → `422`.
+- Email inválido → `422`.
+- `generate-learning-path` sin gap pendiente para ese email → `404`.
+- Groq devuelve JSON inválido o falla → `502` con detalle.
+
+### Cómo funciona con varios summaries por email
+
+El alumno puede subir documentos varias veces — cada call crea una fila nueva. Cuando llama a `generate-learning-path`, el sistema toma el **último gap con `learning_path_id IS NULL`** (LIFO). Si quiere generar planes para los anteriores también, vuelve a llamar al endpoint hasta que devuelva `404`.
+
+### Verificación en Neon
+
+```sql
+-- Resumen de gaps por estudiante
+SELECT id, student_email, company_email, readiness_score,
+       learning_path_id, created_at
+FROM gap_analyses
+ORDER BY id DESC LIMIT 10;
+
+-- Ver el GapReport completo extraído por Groq
+SELECT id, gap_report_json FROM gap_analyses WHERE id = 1;
+
+-- Conectar gap con el plan generado
+SELECT ga.id AS gap_id, ga.student_email, ga.summary,
+       lp.id AS plan_id, lp.target_role_title
+FROM gap_analyses ga
+LEFT JOIN learning_paths lp ON lp.id = ga.learning_path_id
+ORDER BY ga.id DESC;
+```
 
 ---
 
@@ -85,7 +172,7 @@ curl -X DELETE https://capacity-ar-ap.onrender.com/users/2
 ### Crear plan desde un GapReport
 
 ```bash
-curl -X POST https://capacity-ar-ap.onrender.com/learning-paths \
+curl -X POST https://capacity-ar-ap.onrender.com/api/learning-paths \
   -H "Content-Type: application/json" \
   -d '{
     "student": {
@@ -118,15 +205,15 @@ Respuesta `201` con `id`, `status: "ACTIVE"`, `generator_used`, módulos por ski
 ### Listar / ver / por estudiante
 
 ```bash
-curl https://capacity-ar-ap.onrender.com/learning-paths
-curl https://capacity-ar-ap.onrender.com/learning-paths/1
-curl https://capacity-ar-ap.onrender.com/students/ana@example.com/learning-paths
+curl https://capacity-ar-ap.onrender.com/api/learning-paths
+curl https://capacity-ar-ap.onrender.com/api/learning-paths/1
+curl https://capacity-ar-ap.onrender.com/api/students/ana@example.com/learning-paths
 ```
 
 ### Casos de error
 
 - Todas las skills en `READY` → `409 Conflict` (no genera plan vacío).
-- `GET /learning-paths/9999` → `404`.
+- `GET /api/learning-paths/9999` → `404`.
 - Payload con campos faltantes → `422` con detalle del campo.
 
 ---
@@ -138,7 +225,7 @@ Identificación del ejercicio: 4 campos compuestos (`learning_path_id` + `module
 ### Responder un ejercicio
 
 ```bash
-curl -X POST https://capacity-ar-ap.onrender.com/attempts \
+curl -X POST https://capacity-ar-ap.onrender.com/api/attempts \
   -H "Content-Type: application/json" \
   -d '{
     "student_email": "carlos.gamer@example.com",
@@ -160,8 +247,8 @@ Respuesta:
 ### Consultar
 
 ```bash
-curl https://capacity-ar-ap.onrender.com/attempts/1
-curl https://capacity-ar-ap.onrender.com/students/carlos.gamer@example.com/attempts
+curl https://capacity-ar-ap.onrender.com/api/attempts/1
+curl https://capacity-ar-ap.onrender.com/api/students/carlos.gamer@example.com/attempts
 ```
 
 ### Errores esperados
@@ -216,7 +303,7 @@ Para mostrar variabilidad: repetir el mismo body dos veces. Como `temperature=0.
 ### Body de ejemplo (Frontend Junior con interés en videojuegos)
 
 ```bash
-curl -X POST https://capacity-ar-ap.onrender.com/learning-paths \
+curl -X POST https://capacity-ar-ap.onrender.com/api/learning-paths \
   -H "Content-Type: application/json" \
   -d '{
     "student": {
@@ -245,7 +332,7 @@ Para probar otro perfil, cambiar `student.interests`, `company.name`, `target_ro
 ### Ver status code + headers
 
 ```bash
-curl -i https://capacity-ar-ap.onrender.com/users/9999
+curl -i https://capacity-ar-ap.onrender.com/api/users/9999
 ```
 
 El `-i` muestra los headers incluyendo `HTTP/2 404`.
@@ -253,7 +340,7 @@ El `-i` muestra los headers incluyendo `HTTP/2 404`.
 ### JSON con formato (requiere `jq`)
 
 ```bash
-curl -s https://capacity-ar-ap.onrender.com/learning-paths | jq
+curl -s https://capacity-ar-ap.onrender.com/api/learning-paths | jq
 ```
 
 Instalación: `sudo apt install jq` en Ubuntu/Debian, `brew install jq` en Mac.
