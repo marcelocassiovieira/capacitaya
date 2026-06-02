@@ -123,8 +123,9 @@ async function request<T>(path: string, init?: RequestInit): Promise<T> {
 // ─── Users ───────────────────────────────────────────────────────────────────
 
 export const users = {
-  list: (params?: { offset?: number; limit?: number }) => {
-    const qs = new URLSearchParams(params as Record<string, string>).toString();
+  list: (params?: { offset?: number; limit?: number; role?: UserRole }) => {
+    const entries = Object.entries(params ?? {}).filter(([, v]) => v !== undefined);
+    const qs = new URLSearchParams(entries as [string, string][]).toString();
     return request<User[]>(`/users${qs ? `?${qs}` : ""}`);
   },
   get: (id: number) => request<User>(`/users/${id}`),
@@ -222,4 +223,86 @@ export const jobDescriptions = {
     }),
   delete: (id: number) =>
     request<void>(`/job-descriptions/${id}`, { method: "DELETE" }),
+};
+
+// ─── Gap Analyses ─────────────────────────────────────────────────────────────
+
+export interface GapSkill {
+  name: string;
+  current_level: number;
+  required_level: number;
+  gap_level: number;
+  priority: SkillPriority;
+  status: SkillStatus;
+}
+
+export interface GapReportData {
+  id: number | null;
+  summary: string;
+  readiness_score: number;
+  skills: GapSkill[];
+}
+
+export interface GapAnalysis {
+  id: number;
+  student_email: string;
+  company_email: string;
+  readiness_score: number;
+  summary: string;
+  gap_report: GapReportData;
+  learning_path_id: number | null;
+  generator_used: string;
+  created_at: string;
+}
+
+export interface GapAnalysisCreate {
+  student_email: string;
+  job_description_id: number;
+}
+
+export interface GapAnalysisWithPlan {
+  gap_analysis: GapAnalysis;
+  learning_path: LearningPath;
+}
+
+export const gapAnalyses = {
+  create: (data: GapAnalysisCreate) =>
+    request<GapAnalysis>("/gap-analyses", {
+      method: "POST",
+      body: JSON.stringify(data),
+    }),
+  generateLearningPath: (email: string) =>
+    request<GapAnalysisWithPlan>(
+      `/students/${encodeURIComponent(email)}/generate-learning-path`,
+      { method: "POST" },
+    ),
+};
+
+// ─── User Skills ──────────────────────────────────────────────────────────────
+
+export interface UserSkill {
+  id: number;
+  skill_id: number;
+  skill_name: string;
+  level: SkillLevel;
+  created_at: string;
+}
+
+export interface UserSkillCreate {
+  skill_id: number;
+  level: SkillLevel;
+}
+
+export const userSkills = {
+  list: (email: string) =>
+    request<UserSkill[]>(`/students/${encodeURIComponent(email)}/skills`),
+  add: (email: string, data: UserSkillCreate) =>
+    request<UserSkill>(`/students/${encodeURIComponent(email)}/skills`, {
+      method: "POST",
+      body: JSON.stringify(data),
+    }),
+  remove: (email: string, skillId: number) =>
+    request<void>(`/students/${encodeURIComponent(email)}/skills/${skillId}`, {
+      method: "DELETE",
+    }),
 };
