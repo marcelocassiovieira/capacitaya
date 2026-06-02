@@ -115,6 +115,67 @@ def _resolve_url(item: dict, skill_name: str) -> str:
     return f"https://www.google.com/search?q={quote_plus(query)}"
 
 
+def _mock_resources(skill_name: str, phase: str) -> list[Resource]:
+    """Deterministic fallback used when no LLM client is configured (mock mode)."""
+    base_query = quote_plus(skill_name)
+    templates: dict[str, list[dict]] = {
+        "pasion": [
+            {
+                "type": "video",
+                "title": f"Introducción a {skill_name}",
+                "url": f"https://www.youtube.com/results?search_query={quote_plus(skill_name + ' introduccion para principiantes')}",
+            },
+            {
+                "type": "reading",
+                "title": f"¿Qué es {skill_name}?",
+                "url": f"https://www.google.com/search?q={base_query}+que+es",
+            },
+        ],
+        "play": [
+            {
+                "type": "sandbox",
+                "title": f"Playground de {skill_name}",
+                "url": f"https://www.google.com/search?q={base_query}+playground+online",
+            },
+            {
+                "type": "video",
+                "title": f"Tutorial práctico de {skill_name}",
+                "url": f"https://www.youtube.com/results?search_query={quote_plus(skill_name + ' tutorial practico')}",
+            },
+        ],
+        "practica": [
+            {
+                "type": "guide",
+                "title": f"Documentación de {skill_name}",
+                "url": f"https://www.google.com/search?q={base_query}+documentacion+oficial",
+            },
+            {
+                "type": "guide",
+                "title": f"Ejercicios de {skill_name} en FreeCodeCamp",
+                "url": f"https://www.google.com/search?q={quote_plus(skill_name + ' freecodecamp ejercicios')}",
+            },
+        ],
+    }
+    items = templates.get(phase, [])
+    return [
+        Resource(
+            skill_name=skill_name,
+            phase=phase,
+            type=item["type"],
+            title=item["title"],
+            url=item["url"],
+            description=None,
+            duration_minutes=None,
+            source="mock",
+            language="es",
+            level="beginner",
+            generated_by="mock",
+            is_active=True,
+        )
+        for item in items
+    ]
+
+
 def suggest_resources(
     skill_name: str, phase: str, language: str = "es"
 ) -> list[Resource]:
@@ -125,8 +186,12 @@ def suggest_resources(
     try:
         client = _build_client()
     except LlmConfigurationError:
-        logger.info("Skipping resource suggestion: no LLM client configured.")
-        return []
+        logger.info(
+            "No LLM client configured — using mock resources for skill=%s phase=%s",
+            skill_name,
+            phase,
+        )
+        return _mock_resources(skill_name, phase)
 
     prompt = f"""Sos un curador de contenido para una plataforma argentina de capacitacion IT
 dirigida a jovenes principiantes. Tu tarea es sugerir recursos de aprendizaje en {language}

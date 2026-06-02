@@ -19,11 +19,34 @@ from app.modules.gap_analysis.schemas import (
 from app.modules.learning_paths import service as lp_service
 from app.modules.learning_paths.plan_generator.base import PlanGenerator
 from app.modules.learning_paths.repository.base import LearningPathRepository
-from app.modules.learning_paths.schemas import GapReport
+from app.modules.learning_paths.schemas import (
+    CompanyInput,
+    GapReport,
+    GapSkill,
+    RequiredSkill,
+    SkillPriority,
+    SkillStatus,
+    StudentInput,
+    StudentSkill,
+    TargetRoleInput,
+)
+from app.modules.job_descriptions import repository as jd_repository
+from app.modules.job_descriptions.models import JobDescription
+from app.modules.user_skills import repository as us_repository
+from app.modules.users import repository as users_repository
 from app.shared.llm import GroqClient, LlmConfigurationError, LlmResponseError
 
 
 logger = logging.getLogger(__name__)
+
+_LEVEL_INT: dict[str, int] = {
+    "BEGINNER": 1,
+    "INTERMEDIATE": 2,
+    "ADVANCED": 3,
+    "PRO": 4,
+}
+
+_PRIORITY_WEIGHT: dict[str, int] = {"HIGH": 3, "MEDIUM": 2, "LOW": 1}
 
 
 _GAP_REPORT_SCHEMA: dict = {
@@ -152,6 +175,147 @@ def create_gap_analysis(
     )
 
     return _to_response(stored, gap_report)
+
+
+def create_gap_analysis_from_skills(
+    db: Session,
+    student_email: str,
+    job_description_id: int,
+) -> GapAnalysisResponse:
+    student = users_repository.find_by_email(db, student_email)
+    if student is None:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Estudiante no encontrado.")
+
+    jd = jd_repository.find_by_id(db, job_description_id)
+    if jd is None:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Puesto no encontrado.")
+
+    jd_skills = jd_repository.find_skills_for_jd(db, job_description_id)
+    if not jd_skills:
+        raise HTTPException(
+            status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
+            detail="El puesto no tiene habilidades requeridas.",
+        )
+
+    student_skill_rows = us_repository.find_by_user(db, student.id)
+
+    company_user = users_repository.find_by_id(db, jd.user_id)
+    company_name = (
+        f"{company_user.first_name} {company_user.last_name}" if company_user else "Empresa"
+    )
+    company_email = company_user.email if company_user else ""
+
+    gap_report = _build_gap_report(
+        student=student,
+        student_skill_rows=student_skill_rows,
+        jd=jd,
+        jd_skills=jd_skills,
+        company_name=company_name,
+    )
+
+    stored = repository.save(
+        db,
+        GapAnalysis(
+            student_email=student.email,
+            company_email=company_email,
+            readiness_score=gap_report.readiness_score,
+            summary=gap_report.summary,
+            gap_report_json=gap_report.model_dump_json(),
+            student_doc_text="",
+            position_doc_text="",
+            learning_path_id=None,
+            generator_used="skills",
+        ),
+    )
+
+    return _to_response(stored, gap_report)
+
+
+def _build_gap_report(
+    student,
+    student_skill_rows: list,
+    jd: JobDescription,
+    jd_skills: list,
+    company_name: str,
+) -> GapReport:
+    student_skills_dict: dict[str, int] = {
+        name.lower(): _LEVEL_INT[us.level.value]
+        for us, name in student_skill_rows
+    }
+
+    gap_skills: list[GapSkill] = []
+    required_skills_for_role: list[RequiredSkill] = []
+
+    for _skill_id, skill_name, jd_level in jd_skills:
+        required_num = _LEVEL_INT[jd_level.value]
+        current_num = student_skills_dict.get(skill_name.lower(), 0)
+        gap = required_num - current_num
+
+        if gap <= 0:
+            skill_status = SkillStatus.READY
+            skill_priority = SkillPriority.LOW
+        elif gap == 1:
+            skill_status = SkillStatus.NEEDS_WORK
+            skill_priority = SkillPriority.MEDIUM
+        else:
+            skill_status = SkillStatus.MISSING
+            skill_priority = SkillPriority.HIGH
+
+        gap_skills.append(GapSkill(
+            name=skill_name,
+            current_level=min(current_num, 5),
+            required_level=required_num,
+            gap_level=gap,
+            priority=skill_priority,
+            status=skill_status,
+        ))
+        required_skills_for_role.append(RequiredSkill(
+            name=skill_name,
+            level=required_num,
+            priority=skill_priority,
+        ))
+
+    total_weight = sum(_PRIORITY_WEIGHT[gs.priority.value] for gs in gap_skills)
+    if total_weight == 0:
+        readiness_score = 100
+    else:
+        weighted_sum = sum(
+            _PRIORITY_WEIGHT[gs.priority.value] * (
+                min(gs.current_level, gs.required_level) / gs.required_level
+                if gs.required_level > 0 else 1.0
+            )
+            for gs in gap_skills
+        )
+        readiness_score = round(weighted_sum / total_weight * 100)
+
+    n_gaps = sum(1 for gs in gap_skills if gs.status != SkillStatus.READY)
+    student_name = f"{student.first_name} {student.last_name}"
+    if n_gaps == 0:
+        summary = f"{student_name} cumple con el perfil requerido para {jd.title}."
+    elif n_gaps == 1:
+        summary = f"A {student_name} le falta 1 habilidad para alcanzar el perfil de {jd.title}."
+    else:
+        summary = f"A {student_name} le faltan {n_gaps} habilidades para alcanzar el perfil de {jd.title}."
+
+    return GapReport(
+        student=StudentInput(
+            name=student_name,
+            email=student.email,
+            skills=[
+                StudentSkill(name=name, level=_LEVEL_INT[us.level.value])
+                for us, name in student_skill_rows
+            ],
+            interests=[],
+        ),
+        company=CompanyInput(name=company_name),
+        target_role=TargetRoleInput(
+            title=jd.title,
+            required_skills=required_skills_for_role,
+        ),
+        summary=summary,
+        readiness_score=readiness_score,
+        skills=gap_skills,
+    )
 
 
 def generate_learning_path_for_student(
