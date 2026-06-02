@@ -1,171 +1,207 @@
-import React from "react";
+import React, { useState, useEffect } from "react";
+import { useQuery } from "@tanstack/react-query";
 import { AppLayout } from "@/components/AppLayout";
-import { Check, Lock, Star, Clock, FileText, ArrowRight } from "lucide-react";
+import { Lock, Clock, ArrowRight, BookOpen, Play, Flame, Target, AlertCircle } from "lucide-react";
 import { Link } from "wouter";
+import { learningPaths, type Module } from "@/lib/api";
+import { useLearningPath } from "@/context/LearningPathContext";
+import { useUser } from "@/context/UserContext";
+
+const PHASE_CONFIG = {
+  pasion: { label: "Pasión", Icon: Flame, color: "text-rose-500", bg: "bg-rose-50" },
+  play: { label: "Play", Icon: Play, color: "text-indigo-500", bg: "bg-indigo-50" },
+  practica: { label: "Práctica", Icon: Target, color: "text-emerald-500", bg: "bg-emerald-50" },
+} as const;
+
+const PRIORITY_CONFIG = {
+  HIGH: { label: "Alta", color: "bg-rose-100 text-rose-700" },
+  MEDIUM: { label: "Media", color: "bg-amber-100 text-amber-700" },
+  LOW: { label: "Baja", color: "bg-slate-100 text-slate-600" },
+} as const;
+
+function totalModuleMinutes(mod: Module): number {
+  return mod.units.reduce((sum, u) => sum + u.estimated_minutes, 0);
+}
 
 export function PlanCapacitacion() {
+  const { currentUser } = useUser();
+  const email = currentUser?.email ?? null;
+
+  const { data, isLoading, isError } = useQuery({
+    queryKey: ["learning-path", email],
+    queryFn: () => learningPaths.getByStudent(email!),
+    enabled: !!email,
+  });
+
+  const { setLearningPath, setSelectedModuleIndex, setSelectedUnitIndex } = useLearningPath();
+  const path = data?.[0];
+  const [selectedIndex, setSelectedIndex] = useState(0);
+  const selectedModule = path?.modules[selectedIndex];
+
+  useEffect(() => {
+    if (path) {
+      setLearningPath(path);
+    }
+  }, [path, setLearningPath]);
+
+  if (isLoading) {
+    return (
+      <AppLayout activePage="Mi Plan">
+        <div className="flex items-center justify-center h-64">
+          <div className="animate-spin rounded-full h-10 w-10 border-b-2 border-[#4F46E5]" />
+        </div>
+      </AppLayout>
+    );
+  }
+
+  if (isError || !path) {
+    return (
+      <AppLayout activePage="Mi Plan">
+        <div className="flex flex-col items-center justify-center h-64 gap-3 text-[#64748B]">
+          <AlertCircle className="w-10 h-10 text-rose-400" />
+          <p className="font-medium">No se pudo cargar el plan de capacitación.</p>
+        </div>
+      </AppLayout>
+    );
+  }
+
   return (
     <AppLayout activePage="Mi Plan">
       <div className="space-y-6">
-        {/* Top Header */}
+        {/* Header */}
         <div className="bg-white p-6 rounded-2xl shadow-sm border border-slate-100">
-          <div className="flex flex-col md:flex-row md:items-center justify-between mb-4 gap-4">
+          <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
             <div>
               <h2 className="text-xl font-bold">Tu ruta de aprendizaje</h2>
-              <p className="text-[#64748B]">Tiempo total estimado: 3 semanas · 12 horas</p>
+              <p className="text-[#64748B] mt-1">
+                {path.student_name} · {path.target_role_title} · {path.company_name}
+              </p>
             </div>
-            <div className="text-right">
-              <span className="inline-block bg-indigo-50 text-[#4F46E5] font-bold px-3 py-1 rounded-lg text-sm mb-2">47% completado</span>
+            <div className="flex items-center gap-4">
+              <div className="text-right">
+                <p className="text-xs text-[#64748B]">Tiempo total estimado</p>
+                <p className="font-bold text-[#1E293B]">{path.estimated_total_hours.toFixed(1)} hs</p>
+              </div>
+              <div className="w-px h-10 bg-slate-200" />
+              <div className="text-right">
+                <p className="text-xs text-[#64748B]">Módulos</p>
+                <p className="font-bold text-[#1E293B]">{path.modules.length}</p>
+              </div>
             </div>
-          </div>
-          <div className="h-3 w-full bg-slate-100 rounded-full overflow-hidden">
-            <div className="h-full bg-[#4F46E5] rounded-full transition-all duration-1000" style={{ width: "47%" }}></div>
           </div>
         </div>
 
         <div className="flex flex-col lg:flex-row gap-6">
-          {/* Columna Izquierda: Lista de módulos */}
+          {/* Left: Module list */}
           <div className="w-full lg:w-[40%] bg-white p-6 rounded-2xl shadow-sm border border-slate-100">
-            <div className="flex items-center justify-between mb-6 pb-4 border-b border-slate-100">
-              <h3 className="font-bold text-lg">Módulos</h3>
-              <div className="flex items-center gap-1 text-sm font-semibold text-[#F59E0B] bg-amber-50 px-2.5 py-1 rounded-md">
-                <Star className="w-4 h-4 fill-current" /> 520 XP ganados
-              </div>
-            </div>
-
-            <div className="space-y-4">
-              {/* Modulo 1: Completado */}
-              <div className="flex gap-4 items-start relative p-3 rounded-xl hover:bg-slate-50 transition-colors">
-                <div className="absolute left-7 top-10 bottom-[-16px] w-0.5 bg-emerald-500"></div>
-                <div className="w-8 h-8 rounded-full bg-[#10B981] text-white flex items-center justify-center flex-shrink-0 z-10 mt-1">
-                  <Check className="w-5 h-5" />
-                </div>
-                <div className="flex-1">
-                  <div className="flex justify-between items-start">
-                    <h4 className="font-bold text-[#1E293B] line-through decoration-slate-400">Módulo 1: Excel Básico</h4>
-                    <span className="text-xs font-semibold bg-emerald-100 text-[#10B981] px-2 py-0.5 rounded uppercase">Completado</span>
-                  </div>
-                  <p className="text-sm text-[#64748B] flex items-center gap-1 mt-1"><Clock className="w-3 h-3" /> 2h</p>
-                </div>
-              </div>
-
-              {/* Modulo 2: En progreso */}
-              <div className="flex gap-4 items-start relative p-3 rounded-xl bg-indigo-50/50 border border-indigo-100">
-                <div className="absolute left-7 top-10 bottom-[-16px] w-0.5 bg-slate-200"></div>
-                <div className="w-8 h-8 rounded-full bg-[#4F46E5] text-white flex items-center justify-center flex-shrink-0 z-10 mt-1 shadow-md shadow-indigo-200 ring-4 ring-indigo-50">
-                  <div className="w-2.5 h-2.5 bg-white rounded-full"></div>
-                </div>
-                <div className="flex-1">
-                  <div className="flex justify-between items-start">
-                    <h4 className="font-bold text-[#4F46E5]">Módulo 2: Gestión Documental</h4>
-                    <span className="text-xs font-semibold bg-indigo-100 text-[#4F46E5] px-2 py-0.5 rounded uppercase">En Progreso</span>
-                  </div>
-                  <p className="text-sm text-[#4F46E5] opacity-80 flex items-center gap-1 mt-1"><Clock className="w-3 h-3" /> 2.5h</p>
-                </div>
-              </div>
-
-              {/* Modulo 3: Pendiente */}
-              <div className="flex gap-4 items-start relative p-3 rounded-xl opacity-60">
-                <div className="absolute left-7 top-10 bottom-[-16px] w-0.5 bg-slate-200"></div>
-                <div className="w-8 h-8 rounded-full bg-slate-100 border-2 border-slate-200 text-slate-400 flex items-center justify-center flex-shrink-0 z-10 mt-1">
-                  <Lock className="w-4 h-4" />
-                </div>
-                <div className="flex-1">
-                  <div className="flex justify-between items-start">
-                    <h4 className="font-bold text-slate-700">Módulo 3: Comunicación Escrita</h4>
-                    <span className="text-xs font-semibold bg-slate-100 text-slate-500 px-2 py-0.5 rounded uppercase">Pendiente</span>
-                  </div>
-                  <p className="text-sm text-slate-500 flex items-center gap-1 mt-1"><Clock className="w-3 h-3" /> 3h</p>
-                </div>
-              </div>
-
-              {/* Modulo 4: Pendiente */}
-              <div className="flex gap-4 items-start relative p-3 rounded-xl opacity-60">
-                <div className="absolute left-7 top-10 bottom-[-16px] w-0.5 bg-slate-200"></div>
-                <div className="w-8 h-8 rounded-full bg-slate-100 border-2 border-slate-200 text-slate-400 flex items-center justify-center flex-shrink-0 z-10 mt-1">
-                  <Lock className="w-4 h-4" />
-                </div>
-                <div className="flex-1">
-                  <div className="flex justify-between items-start">
-                    <h4 className="font-bold text-slate-700">Módulo 4: Atención al Cliente</h4>
-                    <span className="text-xs font-semibold bg-slate-100 text-slate-500 px-2 py-0.5 rounded uppercase">Pendiente</span>
-                  </div>
-                  <p className="text-sm text-slate-500 flex items-center gap-1 mt-1"><Clock className="w-3 h-3" /> 2h</p>
-                </div>
-              </div>
-
-              {/* Modulo 5: Pendiente */}
-              <div className="flex gap-4 items-start relative p-3 rounded-xl opacity-60">
-                <div className="w-8 h-8 rounded-full bg-slate-100 border-2 border-slate-200 text-slate-400 flex items-center justify-center flex-shrink-0 z-10 mt-1">
-                  <Lock className="w-4 h-4" />
-                </div>
-                <div className="flex-1">
-                  <div className="flex justify-between items-start">
-                    <h4 className="font-bold text-slate-700">Módulo 5: Evaluación Final</h4>
-                    <span className="text-xs font-semibold bg-slate-100 text-slate-500 px-2 py-0.5 rounded uppercase">Pendiente</span>
-                  </div>
-                  <p className="text-sm text-slate-500 flex items-center gap-1 mt-1"><Clock className="w-3 h-3" /> 1h</p>
-                </div>
-              </div>
-            </div>
-          </div>
-
-          {/* Columna Derecha: Detalle del módulo seleccionado */}
-          <div className="w-full lg:w-[60%]">
-            <div className="bg-white rounded-2xl shadow-sm border border-slate-100 overflow-hidden sticky top-6">
-              <div className="h-32 bg-indigo-50 relative overflow-hidden flex items-center justify-center">
-                <FileText className="w-16 h-16 text-indigo-200 absolute -right-4 -bottom-4 transform rotate-12" />
-                <div className="w-16 h-16 bg-[#4F46E5] rounded-2xl flex items-center justify-center shadow-lg transform -translate-y-4">
-                  <FileText className="w-8 h-8 text-white" />
-                </div>
-              </div>
-
-              <div className="p-8 relative -mt-10 bg-white rounded-t-3xl">
-                <div className="inline-block bg-indigo-100 text-[#4F46E5] text-xs font-bold px-3 py-1 rounded-full uppercase tracking-wider mb-4">
-                  Módulo Actual
-                </div>
-                <h2 className="text-2xl font-bold mb-4">Módulo 2: Gestión Documental</h2>
-
-                <p className="text-[#64748B] text-lg leading-relaxed mb-8">
-                  Aprenderás a organizar, archivar y gestionar documentos digitales y físicos, usando herramientas estándar de oficina.
-                </p>
-
-                <div className="mb-8">
-                  <h4 className="text-sm font-semibold text-[#1E293B] mb-3">Habilidades que desarrollarás:</h4>
-                  <div className="flex flex-wrap gap-2">
-                    <span className="px-3 py-1.5 bg-slate-100 text-slate-700 rounded-lg text-sm font-medium">Archivo digital</span>
-                    <span className="px-3 py-1.5 bg-slate-100 text-slate-700 rounded-lg text-sm font-medium">Nomenclatura de archivos</span>
-                    <span className="px-3 py-1.5 bg-slate-100 text-slate-700 rounded-lg text-sm font-medium">Herramientas de nube</span>
-                  </div>
-                </div>
-
-                <div className="flex items-center gap-6 mb-8 text-[#64748B]">
-                  <div className="flex items-center gap-2 font-medium">
-                    <Clock className="w-5 h-5" /> 2.5 horas
-                  </div>
-                  <div className="flex items-center gap-2 font-medium">
-                    <div className="w-1.5 h-1.5 rounded-full bg-slate-300"></div> 3 pasos
-                  </div>
-                </div>
-
-                <div className="mb-8 p-4 bg-slate-50 rounded-xl border border-slate-100">
-                  <div className="flex justify-between items-center mb-2">
-                    <span className="font-semibold text-sm">Tu progreso en este módulo</span>
-                    <span className="font-bold text-sm text-[#4F46E5]">33%</span>
-                  </div>
-                  <div className="h-2 w-full bg-slate-200 rounded-full overflow-hidden">
-                    <div className="h-full bg-[#4F46E5] rounded-full" style={{ width: "33%" }}></div>
-                  </div>
-                </div>
-
-                <Link href="/modulo">
-                  <button className="w-full flex items-center justify-center gap-2 bg-[#4F46E5] hover:bg-indigo-700 text-white py-4 rounded-xl font-bold text-lg transition-colors shadow-sm">
-                    Continuar módulo <ArrowRight className="w-6 h-6" />
+            <h3 className="font-bold text-lg mb-6 pb-4 border-b border-slate-100">Módulos</h3>
+            <div className="space-y-3">
+              {path.modules.map((mod, i) => {
+                const minutes = totalModuleMinutes(mod);
+                const isSelected = i === selectedIndex;
+                return (
+                  <button
+                    key={i}
+                    onClick={() => setSelectedIndex(i)}
+                    className={`w-full text-left flex gap-4 items-start relative p-3 rounded-xl transition-colors ${
+                      isSelected
+                        ? "bg-indigo-50/80 border border-indigo-100"
+                        : "hover:bg-slate-50 border border-transparent"
+                    }`}
+                  >
+                    {i < path.modules.length - 1 && (
+                      <div
+                        className={`absolute left-7 top-10 bottom-[-12px] w-0.5 ${isSelected ? "bg-indigo-200" : "bg-slate-200"}`}
+                      />
+                    )}
+                    <div
+                      className={`w-8 h-8 rounded-full flex items-center justify-center flex-shrink-0 z-10 mt-1 ${
+                        isSelected
+                          ? "bg-[#4F46E5] text-white shadow-md shadow-indigo-200 ring-4 ring-indigo-50"
+                          : "bg-slate-100 border-2 border-slate-200 text-slate-400"
+                      }`}
+                    >
+                      {isSelected ? (
+                        <div className="w-2.5 h-2.5 bg-white rounded-full" />
+                      ) : (
+                        <Lock className="w-4 h-4" />
+                      )}
+                    </div>
+                    <div className="flex-1 min-w-0">
+                      <div className="flex justify-between items-start gap-2">
+                        <h4 className={`font-bold truncate ${isSelected ? "text-[#4F46E5]" : "text-slate-700"}`}>
+                          {mod.skill_name}
+                        </h4>
+                        <span className={`text-xs font-semibold px-2 py-0.5 rounded shrink-0 ${PRIORITY_CONFIG[mod.priority].color}`}>
+                          {PRIORITY_CONFIG[mod.priority].label}
+                        </span>
+                      </div>
+                      <p className={`text-sm flex items-center gap-1 mt-1 ${isSelected ? "text-[#4F46E5] opacity-80" : "text-slate-500"}`}>
+                        <Clock className="w-3 h-3" />
+                        {(minutes / 60).toFixed(1)}h · {mod.units.length} unidades
+                      </p>
+                    </div>
                   </button>
-                </Link>
-              </div>
+                );
+              })}
             </div>
           </div>
+
+          {/* Right: Module detail */}
+          {selectedModule && (
+            <div className="w-full lg:w-[60%]">
+              <div className="bg-white rounded-2xl shadow-sm border border-slate-100 overflow-hidden sticky top-6">
+                <div className="h-28 bg-indigo-50 flex items-center justify-center relative overflow-hidden">
+                  <BookOpen className="w-20 h-20 text-indigo-100 absolute -right-2 -bottom-4 rotate-12" />
+                  <div className="w-14 h-14 bg-[#4F46E5] rounded-2xl flex items-center justify-center shadow-lg -translate-y-3">
+                    <BookOpen className="w-7 h-7 text-white" />
+                  </div>
+                </div>
+
+                <div className="p-8 -mt-8 bg-white rounded-t-3xl relative">
+                  <div className={`inline-block text-xs font-bold px-3 py-1 rounded-full uppercase tracking-wider mb-3 ${PRIORITY_CONFIG[selectedModule.priority].color}`}>
+                    Prioridad {PRIORITY_CONFIG[selectedModule.priority].label}
+                  </div>
+                  <h2 className="text-2xl font-bold mb-6">{selectedModule.skill_name}</h2>
+
+                  <div className="space-y-3 mb-8">
+                    {selectedModule.units.map((unit, j) => {
+                      const phase = PHASE_CONFIG[unit.phase];
+                      const { Icon } = phase;
+                      return (
+                        <div key={j} className={`flex items-start gap-4 p-4 rounded-xl ${phase.bg}`}>
+                          <div className="w-9 h-9 rounded-lg bg-white flex items-center justify-center flex-shrink-0 shadow-sm">
+                            <Icon className={`w-5 h-5 ${phase.color}`} />
+                          </div>
+                          <div className="flex-1 min-w-0">
+                            <span className={`text-xs font-bold uppercase tracking-wider ${phase.color}`}>
+                              {phase.label}
+                            </span>
+                            <p className="font-semibold text-[#1E293B] text-sm leading-snug mt-0.5">{unit.title}</p>
+                            <p className="text-xs text-[#64748B] mt-1 flex items-center gap-1">
+                              <Clock className="w-3 h-3" />
+                              {unit.estimated_minutes} min
+                              {unit.exercises.length > 0 && ` · ${unit.exercises.length} ejercicios`}
+                              {unit.resources.length > 0 && ` · ${unit.resources.length} recursos`}
+                            </p>
+                          </div>
+                        </div>
+                      );
+                    })}
+                  </div>
+
+                  <Link href="/student/modulo" onClick={() => {
+                    setSelectedModuleIndex(selectedIndex);
+                    setSelectedUnitIndex(0);
+                  }}>
+                    <button className="w-full flex items-center justify-center gap-2 bg-[#4F46E5] hover:bg-indigo-700 text-white py-4 rounded-xl font-bold text-lg transition-colors shadow-sm">
+                      Comenzar módulo <ArrowRight className="w-6 h-6" />
+                    </button>
+                  </Link>
+                </div>
+              </div>
+            </div>
+          )}
         </div>
       </div>
     </AppLayout>
