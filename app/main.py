@@ -13,6 +13,7 @@ from app.modules.job_descriptions.router import router as job_descriptions_route
 from app.modules.learning_paths.router import router as learning_paths_router, student_paths_router
 from app.modules.skills.router import router as skills_router
 from app.modules.skills.seed import seed_skills_if_empty
+from app.modules.user_skills.router import router as user_skills_router
 from app.modules.users.router import router as users_router
 
 
@@ -44,6 +45,7 @@ app.include_router(attempts_router, prefix="/api")
 app.include_router(student_attempts_router, prefix="/api")
 app.include_router(gap_analysis_router, prefix="/api")
 app.include_router(student_gap_analyses_router, prefix="/api")
+app.include_router(user_skills_router, prefix="/api")
 
 _FRONTEND_DIR = Path("frontend/dist/public")
 
