@@ -1,12 +1,20 @@
 from sqlalchemy import select
 from sqlalchemy.orm import Session
 
-from app.modules.users.models import User
+from app.modules.users.models import User, UserRole
 from app.modules.users.schemas import UserCreate, UserUpdate
 
 
-def find_all(db: Session, offset: int = 0, limit: int = 100) -> list[User]:
-    statement = select(User).offset(offset).limit(limit).order_by(User.id)
+def find_all(
+    db: Session,
+    offset: int = 0,
+    limit: int = 100,
+    role: UserRole | None = None,
+) -> list[User]:
+    statement = select(User).order_by(User.id)
+    if role is not None:
+        statement = statement.where(User.role == role)
+    statement = statement.offset(offset).limit(limit)
     return list(db.scalars(statement).all())
 
 
