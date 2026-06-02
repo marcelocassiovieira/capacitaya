@@ -1,6 +1,7 @@
 import React from "react";
 import { useLocation, Link } from "wouter";
-import { Bell, Home, BookOpen, GraduationCap, LineChart, MessageSquare, Users, AlertCircle, FileText, Briefcase, PlusCircle } from "lucide-react";
+import { Bell, Home, BookOpen, GraduationCap, LineChart, MessageSquare, Users, AlertCircle, FileText, Briefcase, PlusCircle, PencilRuler } from "lucide-react";
+import { useUser } from "@/context/UserContext";
 
 interface AppLayoutProps {
   children: React.ReactNode;
@@ -9,32 +10,40 @@ interface AppLayoutProps {
   userName?: string;
 }
 
-export function AppLayout({ children, activePage, userRole = "candidato", userName = "Lucía Ramírez" }: AppLayoutProps) {
+export function AppLayout({ children, activePage, userRole = "candidato", userName }: AppLayoutProps) {
+  const { currentUser } = useUser();
+  const displayName = currentUser
+    ? `${currentUser.first_name} ${currentUser.last_name}`
+    : (userName ?? "Usuario");
   const isCandidato = userRole === "candidato";
   const isEmpresa = userRole === "empresa";
 
   const candidatoLinks = [
-    { name: "Inicio", path: "/", icon: Home },
-    { name: "Mi Plan", path: "/plan", icon: BookOpen },
-    { name: "Capacitación", path: "/modulo", icon: GraduationCap },
-    { name: "Progreso", path: "/progreso", icon: LineChart },
-    { name: "Mi Tutor", path: "/canal-tutor", icon: MessageSquare },
+    { name: "Inicio", path: "/student", icon: Home },
+    { name: "Mis Habilidades", path: "/student/skills", icon: PencilRuler },
+    { name: "Mi Plan", path: "/student/plan", icon: BookOpen },
+    { name: "Capacitación", path: "/student/modulo", icon: GraduationCap },
+    { name: "Progreso", path: "/student/progreso", icon: LineChart },
+    { name: "Mi Tutor", path: "/student/canal-tutor", icon: MessageSquare },
+    { name: "Salir", path: "/login", icon: AlertCircle }
   ];
 
   const tutorLinks = [
-    { name: "Mis Candidatos", path: "/panel-tutor", icon: Users },
-    { name: "Alertas", path: "/panel-tutor", icon: AlertCircle },
-    { name: "Reportes", path: "/panel-tutor", icon: FileText },
+    { name: "Candidatos", path: "/tutor", icon: Users },
+    { name: "Empresas", path: "/tutor/companies", icon: AlertCircle },
+    { name: "Puestos", path: "/tutor/jobs", icon: FileText },
+    { name: "Salir", path: "/login", icon: AlertCircle }
   ];
 
   const empresaLinks = [
     { name: "Puestos", path: "/companies/jobs", icon: Briefcase },
     { name: "Nuevo Puesto", path: "/companies/new-job", icon: PlusCircle },
+    { name: "Salir", path: "/login", icon: AlertCircle }
   ];
 
   const links = isCandidato ? candidatoLinks : isEmpresa ? empresaLinks : tutorLinks;
 
-  const initials = userName
+  const initials = displayName
     .split(" ")
     .map((n) => n[0])
     .join("")
@@ -57,8 +66,8 @@ export function AppLayout({ children, activePage, userRole = "candidato", userNa
                 <Link key={link.name} href={link.path}>
                   <div
                     className={`flex items-center gap-3 px-3 py-2.5 rounded-xl text-sm font-medium transition-colors cursor-pointer ${isActive
-                        ? "bg-indigo-50 text-[#4F46E5]"
-                        : "text-[#64748B] hover:text-[#1E293B] hover:bg-slate-50"
+                      ? "bg-indigo-50 text-[#4F46E5]"
+                      : "text-[#64748B] hover:text-[#1E293B] hover:bg-slate-50"
                       }`}
                   >
                     <Icon className="w-5 h-5" />
@@ -86,7 +95,7 @@ export function AppLayout({ children, activePage, userRole = "candidato", userNa
                   <div className="text-xs text-[#10B981]">En línea</div>
                 </div>
               </div>
-              <Link href="/canal-tutor">
+              <Link href="/student/canal-tutor">
                 <button className="w-full py-2 bg-white border border-slate-200 text-sm font-medium rounded-xl text-[#1E293B] hover:bg-slate-50 transition-colors">
                   Enviar mensaje
                 </button>
@@ -108,7 +117,7 @@ export function AppLayout({ children, activePage, userRole = "candidato", userNa
             </button>
             <div className="flex items-center gap-3 border-l border-slate-200 pl-6">
               <div className="text-right hidden sm:block">
-                <div className="text-sm font-semibold">{userName}</div>
+                <div className="text-sm font-semibold">{displayName}</div>
                 <div className="text-xs text-[#64748B] capitalize">{userRole}</div>
               </div>
               <div className="w-10 h-10 rounded-full bg-slate-100 flex items-center justify-center text-slate-600 font-bold">

@@ -2,15 +2,17 @@ import React from "react";
 import { AppLayout } from "@/components/AppLayout";
 import { CheckCircle2, ArrowRight, MessageSquare, Clock, Check, BookOpen } from "lucide-react";
 import { Link } from "wouter";
+import { useUser } from "@/context/UserContext";
 
 export function Dashboard() {
+  const { currentUser } = useUser();
   return (
     <AppLayout activePage="Inicio">
       <div className="space-y-6">
         {/* Banner */}
         <div className="bg-[#4F46E5] rounded-2xl p-8 text-white shadow-sm overflow-hidden relative">
           <div className="relative z-10">
-            <h1 className="text-2xl md:text-3xl font-bold mb-2">¡Bienvenid@ de nuevo, Lucía!</h1>
+            <h1 className="text-2xl md:text-3xl font-bold mb-2">¡Bienvenid@ de nuevo, {currentUser?.first_name ?? ""}!</h1>
             <p className="text-indigo-100 text-lg">Capacitación para: Asistente Administrativa Jr. en Empresa Global S.A.</p>
           </div>
           <div className="absolute top-0 right-0 w-64 h-64 bg-white opacity-5 rounded-full -translate-y-1/2 translate-x-1/4"></div>
