@@ -3,6 +3,7 @@ from sqlalchemy.orm import Session
 
 from app.database import get_db
 from app.modules.users import service
+from app.modules.users.models import UserRole
 from app.modules.users.schemas import UserCreate, UserResponse, UserUpdate
 
 
@@ -13,9 +14,10 @@ router = APIRouter(prefix="/users", tags=["users"])
 def list_users(
     offset: int = Query(default=0, ge=0),
     limit: int = Query(default=100, ge=1, le=100),
+    role: UserRole | None = Query(default=None),
     db: Session = Depends(get_db),
 ) -> list[UserResponse]:
-    return service.list_users(db, offset=offset, limit=limit)
+    return service.list_users(db, offset=offset, limit=limit, role=role)
 
 
 @router.post("", response_model=UserResponse, status_code=status.HTTP_201_CREATED)

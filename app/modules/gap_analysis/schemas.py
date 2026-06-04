@@ -10,6 +10,11 @@ class GapAnalysisInputs(BaseModel):
     company_email: EmailStr
 
 
+class GapAnalysisFromSkillsCreate(BaseModel):
+    student_email: EmailStr
+    job_description_id: int
+
+
 class GapAnalysisResponse(BaseModel):
     id: int
     student_email: EmailStr

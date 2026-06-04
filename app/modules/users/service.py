@@ -2,12 +2,17 @@ from fastapi import HTTPException, status
 from sqlalchemy.orm import Session
 
 from app.modules.users import repository
-from app.modules.users.models import User
+from app.modules.users.models import User, UserRole
 from app.modules.users.schemas import UserCreate, UserUpdate
 
 
-def list_users(db: Session, offset: int = 0, limit: int = 100) -> list[User]:
-    return repository.find_all(db, offset=offset, limit=limit)
+def list_users(
+    db: Session,
+    offset: int = 0,
+    limit: int = 100,
+    role: UserRole | None = None,
+) -> list[User]:
+    return repository.find_all(db, offset=offset, limit=limit, role=role)
 
 
 def get_user(db: Session, user_id: int) -> User:

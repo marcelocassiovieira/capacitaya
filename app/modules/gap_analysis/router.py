@@ -1,9 +1,10 @@
-from fastapi import APIRouter, Depends, File, Form, Query, UploadFile, status
+from fastapi import APIRouter, Depends, Query, status
 from sqlalchemy.orm import Session
 
 from app.database import get_db
 from app.modules.gap_analysis import service
 from app.modules.gap_analysis.schemas import (
+    GapAnalysisFromSkillsCreate,
     GapAnalysisResponse,
     GapAnalysisWithPlanResponse,
 )
@@ -22,18 +23,13 @@ router = APIRouter(prefix="/gap-analyses", tags=["gap-analyses"])
     response_model=GapAnalysisResponse,
 )
 def create_gap_analysis(
-    student_email: str = Form(...),
-    company_email: str = Form(...),
-    student_doc: UploadFile = File(...),
-    position_doc: UploadFile = File(...),
+    payload: GapAnalysisFromSkillsCreate,
     db: Session = Depends(get_db),
 ) -> GapAnalysisResponse:
-    return service.create_gap_analysis(
+    return service.create_gap_analysis_from_skills(
         db=db,
-        student_email=student_email,
-        company_email=company_email,
-        student_doc=student_doc,
-        position_doc=position_doc,
+        student_email=payload.student_email,
+        job_description_id=payload.job_description_id,
     )
 
 
