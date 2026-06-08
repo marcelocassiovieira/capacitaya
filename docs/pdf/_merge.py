@@ -84,7 +84,7 @@ def build_front_matter(toc_entries: list[tuple[str, int]]) -> bytes:
     # ---- Portada ----
     story.append(Spacer(1, 60))
     story.append(Paragraph("TRABAJO PRÁCTICO · INGENIERÍA DE SOFTWARE", chip))
-    story.append(Paragraph("Capacity AR", h_cover))
+    story.append(Paragraph("Sistema CapacityAR", h_cover))
     story.append(Paragraph(
         "Documentación técnica consolidada del backend del MVP. "
         "Plataforma de aprendizaje adaptativo (5P + ITS con HITL) "
