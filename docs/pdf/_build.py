@@ -49,11 +49,21 @@ pre {
   color: #e6ebff;
   border-radius: 8px;
   padding: 14px 16px;
-  overflow-x: auto;
-  font-size: 11.5px;
-  line-height: 1.45;
+  font-size: 10.5px;
+  line-height: 1.5;
+  white-space: pre-wrap;
+  word-break: break-word;
+  overflow-wrap: anywhere;
 }
-pre code { background: transparent; border: none; color: inherit; padding: 0; }
+pre code {
+  background: transparent;
+  border: none;
+  color: inherit;
+  padding: 0;
+  white-space: pre-wrap;
+  word-break: break-word;
+  overflow-wrap: anywhere;
+}
 table { width: 100%; border-collapse: collapse; margin: 12px 0; font-size: 11.5px; }
 th, td { text-align: left; padding: 7px 9px; border-bottom: 1px solid #e1e6f5; }
 th { background: #f6f7fc; color: #1f2433; font-weight: 600; }
@@ -85,13 +95,39 @@ hr { border: none; border-top: 1px solid #e1e6f5; margin: 22px 0; }
 """
 
 
+# Titulos amigables (con tildes) por archivo
+PRETTY_TITLES = {
+    "5p-coverage":            "Cobertura del modelo 5P",
+    "access-matrix":          "Matriz de accesos",
+    "ai-integration":         "Integración con IA",
+    "api-curls":              "Curls de prueba de la API",
+    "backend-onboarding":     "Backend onboarding",
+    "backlog":                "Backlog",
+    "frontend-guide":         "Guía para el frontend",
+    "gap-engine-mvp":         "Gap engine MVP",
+    "informe-tecnico":        "Informe técnico (resumen)",
+    "resources-design":       "Diseño de recursos",
+    "scope-equipos":          "Scope entre equipos",
+    "training-module-design": "Diseño del módulo de entrenamiento",
+}
+
+
 def render_md_to_html(md_path: Path) -> str:
     md_text = md_path.read_text(encoding="utf-8")
+
+    # Remover el primer H1 del MD para no duplicar el titulo con la cover
+    lines = md_text.splitlines()
+    if lines and lines[0].lstrip().startswith("# "):
+        lines = lines[1:]
+        while lines and not lines[0].strip():
+            lines = lines[1:]
+    md_text = "\n".join(lines)
+
     html_body = markdown.markdown(
         md_text,
         extensions=["tables", "fenced_code", "toc", "sane_lists"],
     )
-    title = md_path.stem.replace("-", " ").title()
+    title = PRETTY_TITLES.get(md_path.stem, md_path.stem.replace("-", " ").title())
     return f"""<!doctype html>
 <html lang="es"><head>
 <meta charset="utf-8"/>

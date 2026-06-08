@@ -25,17 +25,17 @@ OUT = HERE / "capacity-ar-documentacion.pdf"
 
 # Orden + titulos amigables
 ORDER = [
-    ("informe-tecnico.pdf",            "Informe tecnico (interactivo)"),
-    ("informe-tecnico-resumen.pdf",    "Informe tecnico (resumen)"),
+    ("informe-tecnico.pdf",            "Informe técnico (interactivo)"),
+    ("informe-tecnico-resumen.pdf",    "Informe técnico (resumen)"),
     ("scope-equipos.pdf",              "Scope entre equipos"),
     ("backend-onboarding.pdf",         "Backend onboarding"),
-    ("ai-integration.pdf",             "Integracion con IA"),
+    ("ai-integration.pdf",             "Integración con IA"),
     ("5p-coverage.pdf",                "Cobertura del modelo 5P"),
     ("gap-engine-mvp.pdf",             "Gap engine MVP"),
-    ("training-module-design.pdf",     "Diseno del modulo de entrenamiento"),
-    ("resources-design.pdf",           "Diseno de recursos"),
+    ("training-module-design.pdf",     "Diseño del módulo de entrenamiento"),
+    ("resources-design.pdf",           "Diseño de recursos"),
     ("access-matrix.pdf",              "Matriz de accesos"),
-    ("frontend-guide.pdf",             "Guia para el frontend"),
+    ("frontend-guide.pdf",             "Guía para el frontend"),
     ("api-curls.pdf",                  "Curls de prueba de la API"),
     ("backlog.pdf",                    "Backlog"),
 ]
@@ -75,28 +75,28 @@ def build_front_matter(toc_entries: list[tuple[str, int]]) -> bytes:
         buf, pagesize=A4,
         leftMargin=18 * mm, rightMargin=18 * mm,
         topMargin=22 * mm, bottomMargin=18 * mm,
-        title="Capacity AR - Documentacion consolidada",
-        author="Equipo 2 - Ingenieria de Software",
+        title="Capacity AR · Documentación consolidada",
+        author="Equipo 2 · Ingeniería de Software",
     )
 
     story: list = []
 
     # ---- Portada ----
     story.append(Spacer(1, 60))
-    story.append(Paragraph("TRABAJO PRACTICO - INGENIERIA DE SOFTWARE", chip))
+    story.append(Paragraph("TRABAJO PRÁCTICO · INGENIERÍA DE SOFTWARE", chip))
     story.append(Paragraph("Capacity AR", h_cover))
     story.append(Paragraph(
-        "Documentacion tecnica consolidada del backend del MVP. "
+        "Documentación técnica consolidada del backend del MVP. "
         "Plataforma de aprendizaje adaptativo (5P + ITS con HITL) "
-        "para insertar jovenes de barrios vulnerables al sector IT en Argentina.",
+        "para insertar jóvenes de barrios vulnerables al sector IT en Argentina.",
         h_sub,
     ))
     story.append(Spacer(1, 20))
     meta_rows = [
         ["Repositorio", "github.com/marcelocassiovieira/capacitaya"],
-        ["Produccion", "capacity-ar-ap.onrender.com"],
-        ["Stack", "Python 3.12 - FastAPI - PostgreSQL (Neon) - Render"],
-        ["IA",  "Groq + Gemini con fallback automatico a Mock"],
+        ["Producción", "capacity-ar-ap.onrender.com"],
+        ["Stack", "Python 3.12 · FastAPI · PostgreSQL (Neon) · Render"],
+        ["IA",  "Groq + Gemini con fallback automático a Mock"],
         ["Fecha", date.today().isoformat()],
         ["Documentos", f"{len(toc_entries)} secciones"],
     ]
@@ -119,7 +119,7 @@ def build_front_matter(toc_entries: list[tuple[str, int]]) -> bytes:
 
     # ---- Indice ----
     story.append(Spacer(1, 30))
-    story.append(Paragraph("Indice", h_section))
+    story.append(Paragraph("Índice", h_section))
 
     toc_rows = []
     for i, (title, page) in enumerate(toc_entries, start=1):
@@ -181,7 +181,7 @@ def main() -> int:
     front_reader = PdfReader(io.BytesIO(front_bytes))
     for p in front_reader.pages:
         writer.add_page(p)
-    writer.add_outline_item("Portada e indice", 0)
+    writer.add_outline_item("Portada e índice", 0)
 
     cursor = len(front_reader.pages)
     for (reader, title), pcount in zip(readers, pages_per_doc):
@@ -192,9 +192,9 @@ def main() -> int:
         cursor += pcount
 
     writer.add_metadata({
-        "/Title": "Capacity AR - Documentacion consolidada",
-        "/Author": "Equipo 2 - Ingenieria de Software",
-        "/Subject": "Backend MVP - Plataforma de capacitacion adaptativa (5P + ITS)",
+        "/Title": "Capacity AR · Documentación consolidada",
+        "/Author": "Equipo 2 · Ingeniería de Software",
+        "/Subject": "Backend MVP · Plataforma de capacitación adaptativa (5P + ITS)",
     })
 
     with OUT.open("wb") as f:
