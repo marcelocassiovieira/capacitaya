@@ -83,7 +83,6 @@ def build_front_matter(toc_entries: list[tuple[str, int]]) -> bytes:
 
     # ---- Portada ----
     story.append(Spacer(1, 60))
-    story.append(Paragraph("TRABAJO PRÁCTICO · INGENIERÍA DE SOFTWARE", chip))
     story.append(Paragraph("Sistema CapacityAR", h_cover))
     story.append(Paragraph(
         "Documentación técnica consolidada del backend del MVP. "
@@ -93,7 +92,7 @@ def build_front_matter(toc_entries: list[tuple[str, int]]) -> bytes:
     ))
     story.append(Spacer(1, 20))
     meta_rows = [
-        ["Repositorio", "github.com/marcelocassiovieira/capacitaya"],
+        ["Repositorio", "github.com/Capacityar"],
         ["Producción", "capacity-ar-ap.onrender.com"],
         ["Stack", "Python 3.12 · FastAPI · PostgreSQL (Neon) · Render"],
         ["IA",  "Groq + Gemini con fallback automático a Mock"],
