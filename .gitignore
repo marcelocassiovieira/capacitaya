@@ -10,3 +10,7 @@ htmlcov/
 node_modules/
 dist/
 build/
+
+# PDFs individuales generados desde docs/*.md (solo se versiona el consolidado)
+docs/pdf/*.pdf
+!docs/pdf/capacity-ar-documentacion.pdf
